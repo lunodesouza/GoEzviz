@@ -16,6 +16,21 @@ Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP
 
 ![GoEzviz](docs/Image%20Sep%2010,%202026,%2010_16_00%20AM.png)
 
+## Download
+
+Latest: **[1.0.0-with-ffmpeg-completed](https://github.com/lunodesouza/GoEzviz/releases/tag/1.0.0-with-ffmpeg-completed)** — unzip and run. All releases: [Releases](https://github.com/lunodesouza/GoEzviz/releases).
+
+<p align="center">
+  <a href="https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-with-ffmpeg-completed-windows-amd64.zip"><img src="https://img.shields.io/badge/Windows-amd64-0078D6?logo=windows&logoColor=white" alt="Download Windows amd64"></a>
+  <a href="https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-macos-arm64.zip"><img src="https://img.shields.io/badge/macOS-Apple%20Silicon-000000?logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>
+</p>
+
+| Platform | Package | Notes |
+|---|---|---|
+| Windows (amd64) | [GoEzviz-1.0.0-with-ffmpeg-completed-windows-amd64.zip](https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-with-ffmpeg-completed-windows-amd64.zip) | FFmpeg included. Unzip and run `GoEzviz.exe`. |
+| macOS (Apple Silicon) | [GoEzviz-1.0.0-macos-arm64.zip](https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-macos-arm64.zip) | Requires FFmpeg (`brew install ffmpeg`). Intel Macs: build from source. |
+| Linux | — | No binary yet — [build from source](#build). |
+
 ## Features
 
 - Automatic ONVIF discovery on the LAN
