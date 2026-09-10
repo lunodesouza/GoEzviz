@@ -2,7 +2,7 @@
 
 Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP — no cloud, no account.
 
-Tested with both lenses of the EZVIZ H9c; works with any ONVIF camera.
+**Homologated camera:** [EZVIZ H9c](https://www.ezviz.com/) (both lenses — main and secondary). Other ONVIF cameras may work, but only the H9c has been validated.
 
 ![GoEzviz](docs/Image%20Sep%2010,%202026,%2010_16_00%20AM.png)
 
@@ -49,7 +49,7 @@ Open the app, click **Devices**, use **Discover LAN** or add an IP, enter the ca
 
 ## Contributing
 
-Fork the repo and open a pull request.
+Want to add support for more cameras or brands? Feel free to collaborate — fork the repo and open a pull request.
 
 ## License
 
