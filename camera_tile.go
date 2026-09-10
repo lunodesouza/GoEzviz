@@ -96,7 +96,7 @@ func newCameraTile(
 		prefs:    prefs,
 		parent:   parent,
 		stream:   newVideoStream(),
-		status:   widget.NewLabel("Aguardando conexao"),
+		status:   widget.NewLabel(T("WaitingConnection")),
 		audio:    &cameraAudio{},
 		talk:     &cameraTalk{},
 		volume:   prefs.Volume,
@@ -114,7 +114,7 @@ func newCameraTile(
 	tile.loading = widget.NewActivity()
 	tile.loadingOverlay = container.NewCenter(container.NewVBox(
 		container.NewCenter(tile.loading),
-		widget.NewLabel("Carregando imagem..."),
+		widget.NewLabel(T("LoadingImage")),
 	))
 	videoObjects := []fyne.CanvasObject{tile.stream.view, tile.loadingOverlay}
 	if profile.PTZ {
@@ -159,7 +159,7 @@ func (tile *cameraTile) buildMediaControls() fyne.CanvasObject {
 		)
 	}
 	if tile.profile.Talk {
-		tile.talkButton = widget.NewButtonWithIcon("Falar", theme.MediaRecordIcon(), tile.toggleTalk)
+		tile.talkButton = widget.NewButtonWithIcon(T("Talk"), theme.MediaRecordIcon(), tile.toggleTalk)
 		tile.micIndicator = canvas.NewCircle(microphoneInactiveColor)
 		tile.talk.setActivityCallback(tile.setMicrophoneActivity)
 		objects = append(objects, container.NewHBox(
@@ -200,7 +200,7 @@ func (tile *cameraTile) buildQualitySelector() fyne.CanvasObject {
 	profilesByOption := make(map[string]profileSettings, len(tile.profiles))
 	selected := ""
 	for _, profile := range tile.profiles {
-		option := profileFrameSize(profile)
+		option := qualityLabel(profileFrameSize(profile))
 		if profile.Resolution != "" {
 			option += " - " + profile.Resolution
 		}
@@ -223,7 +223,7 @@ func (tile *cameraTile) buildQualitySelector() fyne.CanvasObject {
 		tile.selectProfile(profile)
 	}
 	return container.NewHBox(
-		widget.NewLabel("Qualidade:"),
+		widget.NewLabel(T("Quality")),
 		container.NewGridWrap(fyne.NewSize(170, quality.MinSize().Height), quality),
 	)
 }
@@ -237,7 +237,7 @@ func (tile *cameraTile) selectProfile(profile profileSettings) {
 		tile.soundButton.SetIcon(theme.VolumeMuteIcon())
 	}
 	if tile.talkButton != nil {
-		tile.talkButton.SetText("Falar")
+		tile.talkButton.SetText(T("Talk"))
 	}
 	if tile.prefs.OnProfile != nil {
 		tile.prefs.OnProfile(tile.device.ID, profile.SourceToken, profile.Token)
@@ -253,9 +253,9 @@ func (tile *cameraTile) updatePreferences(preferences tilePreferences) {
 	if microphoneChanged && tile.talk.isActive() {
 		tile.talk.stop()
 		if tile.talkButton != nil {
-			tile.talkButton.SetText("Falar")
+			tile.talkButton.SetText(T("Talk"))
 		}
-		tile.setStatus("Microfone alterado; clique em Falar para usar o novo dispositivo")
+		tile.setStatus(T("MicChanged"))
 	}
 }
 
@@ -286,7 +286,7 @@ func (tile *cameraTile) start(parent context.Context) {
 	generation := tile.generation
 	tile.backoff = 5 * time.Second
 	tile.mu.Unlock()
-	tile.setStatus("Conectando...")
+	tile.setStatus(T("Connecting"))
 	tile.setLoading(true)
 	go tile.prepareONVIF(ctx, generation)
 	tile.startVideoAttempt(ctx, generation)
@@ -298,7 +298,7 @@ func (tile *cameraTile) startVideoAttempt(ctx context.Context, generation uint64
 	}
 	streamURL := tile.device.streamURL(tile.profile)
 	if streamURL == "" {
-		tile.setStatus("Perfil sem URI RTSP")
+		tile.setStatus(T("NoRTSP"))
 		tile.setLoading(false)
 		return
 	}
@@ -308,7 +308,7 @@ func (tile *cameraTile) startVideoAttempt(ctx context.Context, generation uint64
 		streamURL,
 		tile.prefs.FPS,
 		streamFrameSize(quality),
-		tile.prefs.ResolutionMode == "Original",
+		normalizeResolutionMode(tile.prefs.ResolutionMode) == "original",
 		func() {
 			if !tile.isCurrent(generation) {
 				return
@@ -334,7 +334,7 @@ func (tile *cameraTile) scheduleReconnect(ctx context.Context, generation uint64
 	tile.backoff = time.Duration(math.Min(float64(tile.backoff*2), float64(60*time.Second)))
 	tile.mu.Unlock()
 	tile.setLoading(true)
-	tile.setStatus(fmt.Sprintf("Offline: %v. Nova tentativa em %s", streamErr, delay))
+	tile.setStatus(T("OfflineRetry", map[string]any{"Error": streamErr.Error(), "Delay": delay.String()}))
 	go func() {
 		timer := time.NewTimer(delay)
 		defer timer.Stop()
@@ -371,7 +371,7 @@ func (tile *cameraTile) toggleAudio() {
 	if tile.audio.isPlaying() {
 		tile.audio.stop()
 		tile.soundButton.SetIcon(theme.VolumeMuteIcon())
-		tile.setStatus("Audio desligado")
+		tile.setStatus(T("AudioOff"))
 		return
 	}
 	tile.startAudio()
@@ -392,7 +392,7 @@ func (tile *cameraTile) startAudio() {
 		return
 	}
 	tile.soundButton.Disable()
-	tile.setStatus("Verificando audio da camera...")
+	tile.setStatus(T("CheckingAudio"))
 	go func() {
 		probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		available, err := audioStreamAvailable(probeCtx, streamURL)
@@ -404,13 +404,13 @@ func (tile *cameraTile) startAudio() {
 			}
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
-					tile.status.SetText("Nao foi possivel verificar o audio da camera")
+					tile.status.SetText(T("AudioCheckFailed"))
 				}
 				return
 			}
 			if !available {
 				tile.soundButton.SetIcon(theme.VolumeMuteIcon())
-				tile.status.SetText("Audio indisponivel. Habilite Audio/Gravar audio nas configuracoes da camera EZVIZ.")
+				tile.status.SetText(T("AudioUnavailable"))
 				return
 			}
 			tile.audioVerified = profileToken
@@ -423,22 +423,22 @@ func (tile *cameraTile) playAudio(streamURL string) {
 	err := tile.audio.startURL(context.Background(), streamURL, tile.volume, func(err error) {
 		fyne.Do(func() {
 			tile.soundButton.SetIcon(theme.VolumeMuteIcon())
-			tile.status.SetText("Erro no audio: " + err.Error())
+			tile.status.SetText(T("AudioError", map[string]string{"Error": err.Error()}))
 		})
 	})
 	if err != nil {
-		tile.setStatus("Erro no audio: " + err.Error())
+		tile.setStatus(T("AudioError", map[string]string{"Error": err.Error()}))
 		return
 	}
 	tile.soundButton.SetIcon(theme.VolumeUpIcon())
-	tile.setStatus("Audio ligado")
+	tile.setStatus(T("AudioOn"))
 }
 
 func (tile *cameraTile) toggleTalk() {
 	if tile.talk.isActive() {
 		tile.talk.stop()
-		tile.talkButton.SetText("Falar")
-		tile.setStatus("Microfone desligado")
+		tile.talkButton.SetText(T("Talk"))
+		tile.setStatus(T("MicOff"))
 		return
 	}
 	tile.mu.Lock()
@@ -446,7 +446,7 @@ func (tile *cameraTile) toggleTalk() {
 	ctx := tile.ctx
 	tile.mu.Unlock()
 	if client == nil {
-		tile.setStatus("Aguarde a conexao ONVIF ficar pronta")
+		tile.setStatus(T("WaitONVIF"))
 		return
 	}
 	if ctx == nil {
@@ -461,20 +461,20 @@ func (tile *cameraTile) toggleTalk() {
 			_ = client.setAudioOutputLevel(talkCtx, 100)
 			return nil
 		},
-		func() { tile.setStatus("Microfone ativo") },
+		func() { tile.setStatus(T("MicActive")) },
 		func(err error) {
 			fyne.Do(func() {
-				tile.talkButton.SetText("Falar")
-				tile.status.SetText("Erro no microfone: " + err.Error())
+				tile.talkButton.SetText(T("Talk"))
+				tile.status.SetText(T("MicError", map[string]string{"Error": err.Error()}))
 			})
 		},
 	)
 	if err != nil {
-		tile.setStatus("Erro no microfone: " + err.Error())
+		tile.setStatus(T("MicError", map[string]string{"Error": err.Error()}))
 		return
 	}
-	tile.talkButton.SetText("Parar")
-	tile.setStatus("Preparando microfone... fale e veja a bolinha ficar verde")
+	tile.talkButton.SetText(T("Stop"))
+	tile.setStatus(T("PreparingMic"))
 }
 
 func (tile *cameraTile) move(x, y float64) {
@@ -482,7 +482,7 @@ func (tile *cameraTile) move(x, y float64) {
 	client := tile.client
 	tile.mu.Unlock()
 	if client == nil || client.profileToken == "" {
-		tile.setStatus("PTZ ainda nao esta pronto")
+		tile.setStatus(T("PTZNotReady"))
 		return
 	}
 	go func() {
@@ -491,12 +491,12 @@ func (tile *cameraTile) move(x, y float64) {
 		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 		defer cancel()
 		if err := client.move(ctx, x, y); err != nil {
-			tile.setStatus("Erro PTZ: " + err.Error())
+			tile.setStatus(T("PTZError", map[string]string{"Error": err.Error()}))
 			return
 		}
 		time.Sleep(320 * time.Millisecond)
 		if err := client.stop(ctx); err != nil {
-			tile.setStatus("Erro ao parar PTZ: " + err.Error())
+			tile.setStatus(T("PTZStopError", map[string]string{"Error": err.Error()}))
 		}
 	}()
 }
@@ -512,7 +512,7 @@ func (tile *cameraTile) stopPTZ() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		if err := client.stop(ctx); err != nil {
-			tile.setStatus("Erro ao parar PTZ: " + err.Error())
+			tile.setStatus(T("PTZStopError", map[string]string{"Error": err.Error()}))
 		}
 	}()
 }

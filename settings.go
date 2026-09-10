@@ -16,6 +16,7 @@ const settingsVersion = 2
 
 type appSettings struct {
 	Version          int              `json:"version"`
+	Language         string           `json:"language,omitempty"`
 	FPS              int              `json:"fps"`
 	ResolutionMode   string           `json:"resolution"`
 	Volume           int              `json:"volume"`
@@ -79,10 +80,10 @@ func defaultSettings() appSettings {
 	return appSettings{
 		Version:        settingsVersion,
 		Username:       "admin",
-		Quality1:       "Fluido",
-		Quality2:       "Fluido",
+		Quality1:       "fluid",
+		Quality2:       "fluid",
 		DisplayMode:    "Lado a lado",
-		ResolutionMode: "Otimizada",
+		ResolutionMode: "optimized",
 		FPS:            defaultStreamFPS,
 		Volume:         100,
 		Devices:        []deviceSettings{},
@@ -228,18 +229,15 @@ func (settings *appSettings) normalize() {
 	settings.Version = settingsVersion
 	settings.FPS = clampFPS(float64(settings.FPS))
 	settings.Volume = clampVolume(float64(settings.Volume))
-	if settings.Quality1 != "HD" && settings.Quality1 != "Fluido" {
-		settings.Quality1 = "Fluido"
+	if settings.Language != "" {
+		settings.Language = normalizeLanguage(settings.Language)
 	}
-	if settings.Quality2 != "HD" && settings.Quality2 != "Fluido" {
-		settings.Quality2 = "Fluido"
-	}
+	settings.Quality1 = normalizeQuality(settings.Quality1)
+	settings.Quality2 = normalizeQuality(settings.Quality2)
 	if settings.DisplayMode != "Uma em cima da outra" && settings.DisplayMode != "Lado a lado" {
 		settings.DisplayMode = "Lado a lado"
 	}
-	if settings.ResolutionMode != "Original" && settings.ResolutionMode != "Otimizada" {
-		settings.ResolutionMode = "Otimizada"
-	}
+	settings.ResolutionMode = normalizeResolutionMode(settings.ResolutionMode)
 	if len(settings.Devices) == 0 && (settings.Host != "" || settings.Username != "" || settings.Password != "" || settings.EncryptedPassword != "") {
 		settings.Devices = []deviceSettings{legacyDevice(
 			settings.Host,
@@ -333,12 +331,8 @@ func legacyDevice(host, username, password, encryptedPassword, quality1, quality
 	if username == "" {
 		username = defaultSettings().Username
 	}
-	if quality1 != "HD" {
-		quality1 = "Fluido"
-	}
-	if quality2 != "HD" {
-		quality2 = "Fluido"
-	}
+	quality1 = normalizeQuality(quality1)
+	quality2 = normalizeQuality(quality2)
 	device := deviceSettings{
 		Name:              host,
 		Host:              host,
@@ -349,10 +343,10 @@ func legacyDevice(host, username, password, encryptedPassword, quality1, quality
 	}
 	device.ID = stableDeviceID(device.Host, device.Username, device.DeviceServiceURL)
 	device.Profiles = []profileSettings{
-		legacyProfile(host, "101", "Lente 1 HD", "legacy-lens-1", "HD", quality1 == "HD", false),
-		legacyProfile(host, "102", "Lente 1 Fluido", "legacy-lens-1", "Fluido", quality1 == "Fluido", false),
-		legacyProfile(host, "201", "Lente 2 HD", "legacy-lens-2", "HD", quality2 == "HD", true),
-		legacyProfile(host, "202", "Lente 2 Fluido", "legacy-lens-2", "Fluido", quality2 == "Fluido", true),
+		legacyProfile(host, "101", "Lente 1 HD", "legacy-lens-1", "HD", quality1 == "hd", false),
+		legacyProfile(host, "102", "Lente 1 Fluido", "legacy-lens-1", "Fluido", quality1 == "fluid", false),
+		legacyProfile(host, "201", "Lente 2 HD", "legacy-lens-2", "HD", quality2 == "hd", true),
+		legacyProfile(host, "202", "Lente 2 Fluido", "legacy-lens-2", "Fluido", quality2 == "fluid", true),
 	}
 	return device
 }
@@ -431,15 +425,15 @@ func (settings *appSettings) projectSelectedDevice() {
 func selectedLegacyQuality(profiles []profileSettings, hdToken, fluidToken string) string {
 	for _, profile := range profiles {
 		if profile.Selected && (profile.Token == hdToken || profile.FallbackChannel == hdToken) {
-			return "HD"
+			return "hd"
 		}
 	}
 	for _, profile := range profiles {
 		if profile.Selected && (profile.Token == fluidToken || profile.FallbackChannel == fluidToken) {
-			return "Fluido"
+			return "fluid"
 		}
 	}
-	return "Fluido"
+	return "fluid"
 }
 
 func (settings *appSettings) clearCompatibilityView() {

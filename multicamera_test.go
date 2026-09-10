@@ -51,7 +51,7 @@ func TestMergeMediaProfilesPreservesSelectionByChannel(t *testing.T) {
 
 func TestSettingsDisablePTZForFixedLens(t *testing.T) {
 	settings := appSettings{
-		FPS: 6, Volume: 100, ResolutionMode: "Otimizada",
+		FPS: 6, Volume: 100, ResolutionMode: "optimized",
 		Devices: []deviceSettings{{
 			ID: "camera", Host: "camera", Profiles: []profileSettings{
 				{Token: "101", SourceToken: "VideoSource_1", PTZ: true},
@@ -89,7 +89,7 @@ func TestTileReuseIgnoresSelectionOnlyChanges(t *testing.T) {
 		{Token: "101", SourceToken: "VideoSource_1", RTSPURL: "rtsp://camera/101", Selected: true},
 		{Token: "102", SourceToken: "VideoSource_1", RTSPURL: "rtsp://camera/102"},
 	}
-	preferences := tilePreferences{FPS: 6, ResolutionMode: "Otimizada", Microphone: "Mic"}
+	preferences := tilePreferences{FPS: 6, ResolutionMode: "optimized", Microphone: "Mic"}
 	tile := &cameraTile{device: device, profiles: append([]profileSettings(nil), profiles...), prefs: preferences}
 	profiles[0].Selected = false
 	profiles[1].Selected = true

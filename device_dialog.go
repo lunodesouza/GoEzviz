@@ -33,7 +33,7 @@ type deviceManager struct {
 
 func showDeviceManager(app fyne.App, settings *appSettings, onChange func()) {
 	manager := &deviceManager{
-		window:     app.NewWindow("Devices ONVIF"),
+		window:     app.NewWindow(T("DevicesONVIF")),
 		settings:   settings,
 		onChange:   onChange,
 		selected:   -1,
@@ -44,18 +44,18 @@ func showDeviceManager(app fyne.App, settings *appSettings, onChange func()) {
 		password:   widget.NewPasswordEntry(),
 		serviceURL: widget.NewEntry(),
 		profiles:   container.NewVBox(),
-		status:     widget.NewLabel("Selecione um dispositivo ou descubra cameras na LAN"),
+		status:     widget.NewLabel(T("SelectOrDiscover")),
 	}
 	manager.status.Wrapping = fyne.TextWrapWord
 	manager.serviceURL.SetPlaceHolder("http://IP/onvif/device_service")
 	manager.list = widget.NewList(
 		func() int { return len(manager.settings.Devices) },
-		func() fyne.CanvasObject { return widget.NewLabel("Dispositivo") },
+		func() fyne.CanvasObject { return widget.NewLabel(T("Device")) },
 		func(id widget.ListItemID, object fyne.CanvasObject) {
 			device := manager.settings.Devices[id]
-			state := "salvo"
+			state := T("Saved")
 			if manager.online[device.Host] {
-				state = "online"
+				state = T("Online")
 			}
 			object.(*widget.Label).SetText(fmt.Sprintf("%s (%s) - %s", device.Name, device.Host, state))
 		},
@@ -65,46 +65,46 @@ func showDeviceManager(app fyne.App, settings *appSettings, onChange func()) {
 		manager.loadSelected()
 	}
 
-	add := widget.NewButton("Adicionar", manager.addDevice)
-	remove := widget.NewButton("Remover", manager.removeDevice)
+	add := widget.NewButton(T("Add"), manager.addDevice)
+	remove := widget.NewButton(T("Remove"), manager.removeDevice)
 	searchProgress := widget.NewProgressBarInfinite()
 	searchProgress.Hide()
-	searchLabel := widget.NewLabel("Buscando cameras ONVIF...")
+	searchLabel := widget.NewLabel(T("SearchingONVIF"))
 	searchLabel.Hide()
 	var discover *widget.Button
-	discover = widget.NewButton("Descobrir LAN", func() {
+	discover = widget.NewButton(T("DiscoverLAN"), func() {
 		discover.Disable()
-		discover.SetText("Buscando...")
+		discover.SetText(T("Searching"))
 		searchProgress.Show()
 		searchLabel.Show()
-		manager.status.SetText("Procurando dispositivos ONVIF na LAN...")
+		manager.status.SetText(T("LookingForONVIF"))
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
 			defer cancel()
 			cameras, err := discoverLocalCameras(ctx)
 			fyne.Do(func() {
 				discover.Enable()
-				discover.SetText("Descobrir LAN")
+				discover.SetText(T("DiscoverLAN"))
 				searchProgress.Hide()
 				searchLabel.Hide()
 				if err != nil {
-					manager.status.SetText("Erro na descoberta: " + err.Error())
+					manager.status.SetText(T("DiscoveryError", map[string]string{"Error": err.Error()}))
 					return
 				}
 				manager.mergeDiscovery(cameras)
 			})
 		}()
 	})
-	manager.refresh = widget.NewButton("Atualizar perfis ONVIF", manager.refreshProfiles)
-	save := widget.NewButton("Salvar dispositivo", manager.saveSelected)
-	closeButton := widget.NewButton("Fechar", manager.window.Close)
+	manager.refresh = widget.NewButton(T("RefreshProfiles"), manager.refreshProfiles)
+	save := widget.NewButton(T("SaveDevice"), manager.saveSelected)
+	closeButton := widget.NewButton(T("Close"), manager.window.Close)
 
 	form := widget.NewForm(
-		widget.NewFormItem("Nome", manager.name),
-		widget.NewFormItem("IP/Host", manager.host),
-		widget.NewFormItem("Usuario", manager.username),
-		widget.NewFormItem("Senha", manager.password),
-		widget.NewFormItem("Endpoint ONVIF", manager.serviceURL),
+		widget.NewFormItem(T("Name"), manager.name),
+		widget.NewFormItem(T("Host"), manager.host),
+		widget.NewFormItem(T("Username"), manager.username),
+		widget.NewFormItem(T("Password"), manager.password),
+		widget.NewFormItem(T("ONVIFEndpoint"), manager.serviceURL),
 	)
 	left := container.NewBorder(
 		container.NewVBox(
@@ -147,7 +147,7 @@ func (manager *deviceManager) loadSelected() {
 func (manager *deviceManager) addDevice() {
 	device := deviceSettings{
 		ID:       fmt.Sprintf("device-%d", time.Now().UnixNano()),
-		Name:     "Nova camera",
+		Name:     T("NewCamera"),
 		Username: "admin",
 		Profiles: []profileSettings{},
 	}
@@ -161,22 +161,25 @@ func (manager *deviceManager) removeDevice() {
 		return
 	}
 	device := manager.settings.Devices[manager.selected]
-	dialog.ShowConfirm("Remover dispositivo", "Remover "+device.Name+" e seus perfis?", func(remove bool) {
-		if !remove {
-			return
-		}
-		index := manager.selected
-		manager.settings.Devices = append(manager.settings.Devices[:index], manager.settings.Devices[index+1:]...)
-		manager.selected = -1
-		manager.profiles.RemoveAll()
-		manager.list.Refresh()
-		manager.settings.normalize()
-		_ = saveAppSettings(*manager.settings)
-		manager.onChange()
-		if len(manager.settings.Devices) > 0 {
-			manager.list.Select(0)
-		}
-	}, manager.window)
+	dialog.ShowConfirm(
+		T("RemoveDeviceTitle"),
+		T("RemoveDeviceBody", map[string]string{"Name": device.Name}),
+		func(remove bool) {
+			if !remove {
+				return
+			}
+			index := manager.selected
+			manager.settings.Devices = append(manager.settings.Devices[:index], manager.settings.Devices[index+1:]...)
+			manager.selected = -1
+			manager.profiles.RemoveAll()
+			manager.list.Refresh()
+			manager.settings.normalize()
+			_ = saveAppSettings(*manager.settings)
+			manager.onChange()
+			if len(manager.settings.Devices) > 0 {
+				manager.list.Select(0)
+			}
+		}, manager.window)
 }
 
 func (manager *deviceManager) saveSelected() {
@@ -185,7 +188,7 @@ func (manager *deviceManager) saveSelected() {
 	}
 	host := normalizeHost(manager.host.Text)
 	if host == "" || strings.TrimSpace(manager.username.Text) == "" {
-		manager.status.SetText("Preencha IP/Host e usuario")
+		manager.status.SetText(T("FillHostUser"))
 		return
 	}
 	device := &manager.settings.Devices[manager.selected]
@@ -203,11 +206,11 @@ func (manager *deviceManager) saveSelected() {
 	}
 	manager.settings.normalize()
 	if err := saveAppSettings(*manager.settings); err != nil {
-		manager.status.SetText("Erro ao salvar: " + err.Error())
+		manager.status.SetText(T("SaveError", map[string]string{"Error": err.Error()}))
 		return
 	}
 	manager.list.Refresh()
-	manager.status.SetText("Dispositivo salvo")
+	manager.status.SetText(T("DeviceSaved"))
 	manager.onChange()
 }
 
@@ -219,11 +222,11 @@ func (manager *deviceManager) refreshProfiles() {
 	index := manager.selected
 	device := manager.settings.Devices[index]
 	if device.Password == "" {
-		manager.status.SetText("Informe a senha antes de atualizar os perfis")
+		manager.status.SetText(T("EnterPasswordFirst"))
 		return
 	}
 	manager.refresh.Disable()
-	manager.status.SetText("Consultando perfis ONVIF de " + device.Name + "...")
+	manager.status.SetText(T("QueryingProfiles", map[string]string{"Name": device.Name}))
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
@@ -232,7 +235,7 @@ func (manager *deviceManager) refreshProfiles() {
 		fyne.Do(func() {
 			manager.refresh.Enable()
 			if err != nil {
-				manager.status.SetText("Erro ONVIF: " + err.Error())
+				manager.status.SetText(T("ONVIFError", map[string]string{"Error": err.Error()}))
 				return
 			}
 			if index >= len(manager.settings.Devices) || manager.settings.Devices[index].ID != device.ID {
@@ -243,7 +246,7 @@ func (manager *deviceManager) refreshProfiles() {
 			current.DeviceServiceURL = device.cameraConfig().onvifDeviceURL()
 			_ = saveAppSettings(*manager.settings)
 			manager.renderProfiles()
-			manager.status.SetText(fmt.Sprintf("%d perfis encontrados; marque os que deseja exibir", len(profiles)))
+			manager.status.SetText(T("ProfilesFound", map[string]any{"Count": len(profiles)}))
 			manager.onChange()
 		})
 	}()
@@ -257,10 +260,10 @@ func (manager *deviceManager) renderProfiles() {
 	deviceIndex := manager.selected
 	profiles := manager.settings.Devices[deviceIndex].Profiles
 	if len(profiles) == 0 {
-		manager.profiles.Add(widget.NewLabel("Nenhum perfil carregado. Clique em Atualizar perfis ONVIF."))
+		manager.profiles.Add(widget.NewLabel(T("NoProfilesLoaded")))
 		return
 	}
-	manager.profiles.Add(widget.NewLabelWithStyle("Perfis exibidos", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+	manager.profiles.Add(widget.NewLabelWithStyle(T("DisplayedProfiles"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 	for profileIndex := range profiles {
 		index := profileIndex
 		profile := profiles[index]
@@ -269,10 +272,10 @@ func (manager *deviceManager) renderProfiles() {
 			capabilities = append(capabilities, "PTZ")
 		}
 		if profile.Audio {
-			capabilities = append(capabilities, "audio")
+			capabilities = append(capabilities, T("CapabilityAudio"))
 		}
 		if profile.Talk {
-			capabilities = append(capabilities, "fala")
+			capabilities = append(capabilities, T("CapabilityTalk"))
 		}
 		details := strings.TrimSpace(strings.Join([]string{profile.Resolution, profile.Codec}, " "))
 		if len(capabilities) > 0 {
@@ -323,7 +326,7 @@ func (manager *deviceManager) mergeDiscovery(cameras []discoveredCamera) {
 	manager.settings.normalize()
 	manager.list.Refresh()
 	_ = saveAppSettings(*manager.settings)
-	manager.status.SetText(fmt.Sprintf("%d dispositivos ONVIF encontrados na LAN", len(cameras)))
+	manager.status.SetText(T("DevicesFound", map[string]any{"Count": len(cameras)}))
 	if manager.selected < 0 && len(manager.settings.Devices) > 0 {
 		manager.list.Select(0)
 	}

@@ -13,7 +13,7 @@ func TestSettingsV2MultipleDevicesRoundTrip(t *testing.T) {
 
 	settings := appSettings{
 		FPS:              18,
-		ResolutionMode:   "Original",
+		ResolutionMode:   "original",
 		Volume:           63,
 		Microphone:       "Microfone USB",
 		AutoConnect:      true,
@@ -75,7 +75,7 @@ func TestSettingsV2MultipleDevicesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.FPS != 18 || loaded.ResolutionMode != "Original" || loaded.Volume != 63 ||
+	if loaded.FPS != 18 || loaded.ResolutionMode != "original" || loaded.Volume != 63 ||
 		loaded.Microphone != "Microfone USB" || !loaded.AutoConnect {
 		t.Fatalf("global preferences were not preserved: %+v", loaded)
 	}
@@ -135,14 +135,33 @@ func TestSettingsV1MigrationCreatesLegacyProfiles(t *testing.T) {
 			t.Fatalf("legacy profile lacks RTSP fallback data: %+v", profile)
 		}
 	}
-	if loaded.Quality1 != "HD" || loaded.Quality2 != "Fluido" {
+	if loaded.Quality1 != "hd" || loaded.Quality2 != "fluid" {
 		t.Fatalf("legacy qualities were not preserved: %q, %q", loaded.Quality1, loaded.Quality2)
+	}
+	if loaded.ResolutionMode != "optimized" {
+		t.Fatalf("legacy resolution was not migrated: %q", loaded.ResolutionMode)
+	}
+}
+
+func TestSettingsLanguageFieldPersists(t *testing.T) {
+	useTemporaryConfigDir(t)
+	settings := defaultSettings()
+	settings.Language = "en"
+	if err := saveAppSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := loadAppSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Language != "en" {
+		t.Fatalf("language was not persisted: %q", loaded.Language)
 	}
 }
 
 func TestSettingsNormalizationKeepsStableDeviceIDs(t *testing.T) {
 	settings := appSettings{
-		FPS: 6, Volume: 100, ResolutionMode: "Otimizada", DisplayMode: "Lado a lado",
+		FPS: 6, Volume: 100, ResolutionMode: "optimized", DisplayMode: "Lado a lado",
 		Devices: []deviceSettings{
 			{Host: "camera.local", Username: "admin"},
 			{Host: "camera.local", Username: "admin"},

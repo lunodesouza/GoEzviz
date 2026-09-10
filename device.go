@@ -100,14 +100,14 @@ func formatResolution(width, height int) string {
 func profileFrameSize(profile profileSettings) string {
 	parts := strings.Split(strings.ToLower(profile.Resolution), "x")
 	if len(parts) != 2 {
-		return "Fluido"
+		return "fluid"
 	}
 	width, _ := strconv.Atoi(parts[0])
 	height, _ := strconv.Atoi(parts[1])
 	if width*height > fluidFrameWidth*fluidFrameHeight {
-		return "HD"
+		return "hd"
 	}
-	return "Fluido"
+	return "fluid"
 }
 
 func streamChannelFromURL(rawURL string) string {

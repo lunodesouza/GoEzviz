@@ -43,10 +43,10 @@ func TestSettingsNormalization(t *testing.T) {
 	}
 	settings.normalize()
 	if settings.FPS != maxStreamFPS ||
-		settings.Quality1 != "Fluido" ||
-		settings.Quality2 != "HD" ||
+		settings.Quality1 != "fluid" ||
+		settings.Quality2 != "hd" ||
 		settings.DisplayMode != "Lado a lado" ||
-		settings.ResolutionMode != "Original" {
+		settings.ResolutionMode != "original" {
 		t.Fatalf("unexpected normalized settings: %+v", settings)
 	}
 }
@@ -63,11 +63,14 @@ func TestVideoFilterFixesFrameSize(t *testing.T) {
 }
 
 func TestStreamFrameSize(t *testing.T) {
-	if got := streamFrameSize("HD"); got != image.Rect(0, 0, hdFrameWidth, hdFrameHeight) {
+	if got := streamFrameSize("hd"); got != image.Rect(0, 0, hdFrameWidth, hdFrameHeight) {
 		t.Fatalf("HD frame size = %v", got)
 	}
-	if got := streamFrameSize("Fluido"); got != image.Rect(0, 0, fluidFrameWidth, fluidFrameHeight) {
+	if got := streamFrameSize("fluid"); got != image.Rect(0, 0, fluidFrameWidth, fluidFrameHeight) {
 		t.Fatalf("fluid frame size = %v", got)
+	}
+	if got := streamFrameSize("HD"); got != image.Rect(0, 0, hdFrameWidth, hdFrameHeight) {
+		t.Fatalf("legacy HD frame size = %v", got)
 	}
 }
 
@@ -285,7 +288,7 @@ func TestCameraFrames(t *testing.T) {
 		t.Skip("set EZVIZ_TEST_PASSWORD to run the camera integration test")
 	}
 	config := cameraConfig{host: "192.168.2.133", username: "admin", password: password}
-	size := streamFrameSize("Fluido")
+	size := streamFrameSize("fluid")
 	for _, channel := range []string{"102", "202"} {
 		t.Run(channel, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

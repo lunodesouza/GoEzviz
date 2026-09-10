@@ -22,7 +22,7 @@ type gridManager struct {
 func newGridManager(parent context.Context) *gridManager {
 	return &gridManager{
 		parent:    parent,
-		container: container.New(layout.NewGridLayoutWithColumns(1), widget.NewLabel("Abra Devices e selecione os perfis que deseja exibir")),
+		container: container.New(layout.NewGridLayoutWithColumns(1), widget.NewLabel(T("OpenDevicesHint"))),
 	}
 }
 
@@ -129,9 +129,19 @@ func (manager *gridManager) showIdle() {
 	manager.maximized = ""
 	manager.container.Layout = layout.NewGridLayoutWithColumns(1)
 	manager.container.Objects = []fyne.CanvasObject{
-		widget.NewLabel("Clique em Conectar ou ative a conexao automatica"),
+		widget.NewLabel(T("IdleHint")),
 	}
 	manager.container.Refresh()
+}
+
+func (manager *gridManager) refreshIdleTexts(idle bool) {
+	if !idle || len(manager.tiles) > 0 {
+		if len(manager.tiles) == 0 && manager.maximized == "" {
+			manager.refresh()
+		}
+		return
+	}
+	manager.showIdle()
 }
 
 func (manager *gridManager) toggleMaximize(id string) {
@@ -147,7 +157,7 @@ func (manager *gridManager) refresh() {
 	if len(manager.tiles) == 0 {
 		manager.container.Layout = layout.NewGridLayoutWithColumns(1)
 		manager.container.Objects = []fyne.CanvasObject{
-			widget.NewLabel("Nenhum perfil marcado para exibicao. Use o botao Devices."),
+			widget.NewLabel(T("NoProfilesMarked")),
 		}
 		manager.container.Refresh()
 		return

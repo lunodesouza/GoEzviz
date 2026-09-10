@@ -4,8 +4,6 @@ Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP
 
 Tested with both lenses of the EZVIZ H9c; works with any ONVIF camera.
 
-![GoEzviz](docs/Image%20Sep%2010%2C%202026%2C%2010_16_00%20AM.png)
-
 ## Features
 
 - Automatic ONVIF discovery on the LAN

@@ -42,7 +42,7 @@ func clampFPS(value float64) int {
 // streamFrameSize keeps the decoded resolution near what the window shows, so the
 // buffers stay small and the GPU handles whatever scaling is left.
 func streamFrameSize(quality string) image.Rectangle {
-	if quality == "HD" {
+	if normalizeQuality(quality) == "hd" {
 		return image.Rect(0, 0, hdFrameWidth, hdFrameHeight)
 	}
 	return image.Rect(0, 0, fluidFrameWidth, fluidFrameHeight)
@@ -73,7 +73,7 @@ type videoStream struct {
 }
 
 func newVideoStream() *videoStream {
-	placeholder := image.NewRGBA(streamFrameSize("Fluido"))
+	placeholder := image.NewRGBA(streamFrameSize("fluid"))
 	view := canvas.NewImageFromImage(placeholder)
 	view.FillMode = canvas.ImageFillContain
 	// Anything else makes Fyne resample every frame on the CPU into a fresh buffer.
