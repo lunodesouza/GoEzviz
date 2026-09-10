@@ -1,0 +1,8 @@
+Website = "https://github.com/lunodesouza/GoEzviz"
+
+[Details]
+Icon = "assets/icon.png"
+Name = "GoEzviz"
+ID = "local.goezviz"
+Version = "1.0.0"
+Build = 1

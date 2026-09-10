@@ -4,6 +4,12 @@
   <img src="assets/icon.png" alt="GoEzviz" width="160">
 </p>
 
+<p align="center">
+  <a href="#lang"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white" alt="Go 1.25+"></a>
+  <a href="#build"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows, Linux, macOS"></a>
+  <a href="#features"><img src="https://img.shields.io/badge/protocol-ONVIF%20%2F%20RTSP-2ea44f" alt="ONVIF / RTSP"></a>
+</p>
+
 Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP — no cloud, no account.
 
 **Homologated camera:** [EZVIZ H9c](https://www.ezviz.com/) (both lenses — main and secondary). Other ONVIF cameras may work, but only the H9c has been validated.
@@ -15,7 +21,8 @@ Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP
 - Automatic ONVIF discovery on the LAN
 - Multiple cameras and profiles in a grid; double-click to maximize
 - Camera audio, volume control, and PTZ (arrow keys)
-- **Talk**: sends the PC microphone to the camera speaker (AAC backchannel); microphone listing works on Windows (DirectShow) and macOS (AVFoundation)
+- **Talk**: sends the PC microphone to the camera speaker (AAC backchannel)
+- Microphone listing on Windows (DirectShow) and macOS (AVFoundation)
 - Auto-reconnect and saved settings; passwords protected with DPAPI (Windows) or AES-256 (Linux/macOS)
 
 ## Requirements
@@ -47,11 +54,20 @@ brew install go ffmpeg
 go build -ldflags "-s -w" -o GoEzviz .
 ```
 
-On first Talk use, macOS may ask for microphone permission. If access is denied, GoEzviz opens **System Settings → Privacy & Security → Microphone** so you can allow GoEzviz (or Terminal when using `go run`).
+For a Dock and Finder icon, package the app on a Mac (`assets/icon.icns` is already in the repo):
+
+```bash
+./scripts/package-macos.sh
+open GoEzviz.app
+```
+
+After changing `assets/icon.png`, regenerate `icon.icns` with `./scripts/make-icns.sh` and commit it.
 
 ## Usage
 
 Open the app, click **Devices**, use **Discover LAN** or add an IP, enter the camera username and password, refresh ONVIF profiles, and select the ones you want. Then click **Connect**.
+
+On first **Talk** on macOS, the system may ask for microphone access. If it is denied, GoEzviz opens **System Settings → Privacy & Security → Microphone**.
 
 ## Contributing
 
