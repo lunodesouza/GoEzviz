@@ -19,3 +19,8 @@ Thumbs.db
 # macOS packaging leftovers
 /GoEzviz.app/
 /assets/icon.iconset/
+
+# Bundled FFmpeg binaries (downloaded by scripts/fetch-ffmpeg-windows.ps1)
+/resources/ffmpeg/*.exe
+/resources/ffmpeg/*.dll
+/dist/

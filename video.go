@@ -282,7 +282,7 @@ func (s *videoStream) startURLWithReady(parent context.Context, streamURL string
 			args = append(args, "-vf", videoFilter(fps, size), "-threads", "1",
 				"-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1")
 		}
-		cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+		cmd := exec.CommandContext(ctx, ffmpegBinary(), args...)
 		hideCommandWindow(cmd)
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {

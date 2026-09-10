@@ -59,7 +59,7 @@ func audioProbeArgs(streamURL string) []string {
 }
 
 func audioStreamAvailable(ctx context.Context, streamURL string) (bool, error) {
-	probe, err := exec.LookPath("ffprobe")
+	probe, err := findFFmpegTool("ffprobe")
 	if err != nil {
 		// ffplay may still be installed separately, so keep the old behavior.
 		return true, nil
@@ -91,9 +91,9 @@ func (audio *cameraAudio) start(parent context.Context, config cameraConfig, cha
 func (audio *cameraAudio) startURL(parent context.Context, streamURL string, volume int, report func(error)) error {
 	audio.stop()
 
-	player, err := exec.LookPath("ffplay")
+	player, err := findFFmpegTool("ffplay")
 	if err != nil {
-		return errors.New("ffplay nao foi encontrado; instale o pacote completo do FFmpeg")
+		return errors.New("ffplay nao foi encontrado; coloque ffplay na pasta ffmpeg ao lado do GoEzviz")
 	}
 	ctx, cancel := context.WithCancel(parent)
 	cmd := exec.CommandContext(ctx, player, audioPlayerURLArgs(streamURL, volume)...)

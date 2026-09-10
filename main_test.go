@@ -293,7 +293,7 @@ func TestCameraFrames(t *testing.T) {
 		t.Run(channel, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			cmd := exec.CommandContext(ctx, "ffmpeg",
+			cmd := exec.CommandContext(ctx, ffmpegBinary(),
 				"-hide_banner", "-loglevel", "error", "-rtsp_transport", "tcp", "-threads", "1",
 				"-i", config.rtspURL(channel), "-map", "0:v:0", "-an",
 				"-vf", videoFilter(defaultStreamFPS, size), "-threads", "1",

@@ -28,15 +28,17 @@ Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP
 ## Requirements
 
 - [Go 1.25+](https://go.dev/dl/)
-- Full FFmpeg package (`ffmpeg` and `ffplay` on `PATH`)
 - A C compiler (required by Fyne)
+- FFmpeg (`ffmpeg` and `ffplay`): the Windows zip ships them next to the app. On Linux/macOS, install FFmpeg (or, on Windows, run `scripts/fetch-ffmpeg-windows.ps1` when building from source).
 
 ## Build
 
 **Windows** (C compiler: [TDM-GCC](https://jmeubank.github.io/tdm-gcc/) or MinGW)
 
 ```powershell
+./scripts/fetch-ffmpeg-windows.ps1   # once; puts binaries in resources/ffmpeg
 go build -ldflags "-H=windowsgui -s -w" -o GoEzviz.exe .
+./scripts/package-windows.ps1        # dist/GoEzviz-1.0.0-with-ffmpeg-completed-windows-amd64.zip
 ```
 
 **Linux**

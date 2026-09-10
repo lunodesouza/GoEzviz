@@ -126,9 +126,9 @@ func (talk *cameraTalk) startURL(
 	if microphone == "" {
 		return errors.New("selecione um microfone")
 	}
-	ffmpeg, err := exec.LookPath("ffmpeg")
+	ffmpeg, err := findFFmpegTool("ffmpeg")
 	if err != nil {
-		return errors.New("ffmpeg nao foi encontrado")
+		return errors.New("ffmpeg nao foi encontrado; coloque ffmpeg na pasta ffmpeg ao lado do GoEzviz")
 	}
 	streamURL, err := base.ParseURL(rawStreamURL)
 	if err != nil {

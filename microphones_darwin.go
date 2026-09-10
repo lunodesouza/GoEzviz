@@ -14,7 +14,7 @@ import (
 var avfoundationAudioDevice = regexp.MustCompile(`\[(\d+)\]\s+(.+?)\s*$`)
 
 func listMicrophones() ([]string, error) {
-	ffmpeg, err := exec.LookPath("ffmpeg")
+	ffmpeg, err := findFFmpegTool("ffmpeg")
 	if err != nil {
 		return nil, errors.New("ffmpeg nao foi encontrado")
 	}

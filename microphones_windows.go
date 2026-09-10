@@ -13,7 +13,7 @@ import (
 var directShowAudioDevice = regexp.MustCompile(`"([^"\r\n]+)" \(audio\)`)
 
 func listMicrophones() ([]string, error) {
-	ffmpeg, err := exec.LookPath("ffmpeg")
+	ffmpeg, err := findFFmpegTool("ffmpeg")
 	if err != nil {
 		return nil, errors.New("ffmpeg nao foi encontrado")
 	}
