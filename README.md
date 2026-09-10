@@ -1,14 +1,8 @@
 # GoEzviz
 
-<p align="center">
-  <img src="assets/icon.png" alt="GoEzviz" width="160">
-</p>
+![GoEzviz](assets/icon.png)
 
-<p align="center">
-  <a href="#lang"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white" alt="Go 1.25+"></a>
-  <a href="#build"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows, Linux, macOS"></a>
-  <a href="#features"><img src="https://img.shields.io/badge/protocol-ONVIF%20%2F%20RTSP-2ea44f" alt="ONVIF / RTSP"></a>
-</p>
+![Go 1.25+](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)![Windows, Linux, macOS](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)![ONVIF / RTSP](https://img.shields.io/badge/protocol-ONVIF%20%2F%20RTSP-2ea44f)
 
 Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP — no cloud, no account.
 
@@ -18,18 +12,17 @@ Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP
 
 ## Download
 
-Latest: **[1.0.0-with-ffmpeg-completed](https://github.com/lunodesouza/GoEzviz/releases/tag/1.0.0-with-ffmpeg-completed)** — unzip and run. All releases: [Releases](https://github.com/lunodesouza/GoEzviz/releases).
+releases: [Releases](https://github.com/lunodesouza/GoEzviz/releases).
 
-<p align="center">
-  <a href="https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-with-ffmpeg-completed-windows-amd64.zip"><img src="https://img.shields.io/badge/Windows-amd64-0078D6?logo=windows&logoColor=white" alt="Download Windows amd64"></a>
-  <a href="https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-macos-arm64.zip"><img src="https://img.shields.io/badge/macOS-Apple%20Silicon-000000?logo=apple&logoColor=white" alt="Download macOS Apple Silicon"></a>
-</p>
 
-| Platform | Package | Notes |
-|---|---|---|
-| Windows (amd64) | [GoEzviz-1.0.0-with-ffmpeg-completed-windows-amd64.zip](https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-with-ffmpeg-completed-windows-amd64.zip) | FFmpeg included. Unzip and run `GoEzviz.exe`. |
-| macOS (Apple Silicon) | [GoEzviz-1.0.0-macos-arm64.zip](https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-macos-arm64.zip) | Requires FFmpeg (`brew install ffmpeg`). Intel Macs: build from source. |
-| Linux | — | No binary yet — [build from source](#build). |
+| Platform              | Package                                                                                                                                                                                             | Notes                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Windows (amd64)       | [GoEzviz-1.0.0-with-ffmpeg-completed-windows-amd64.zip](https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-with-ffmpeg-completed-windows-amd64.zip) | FFmpeg included. Unzip and run `GoEzviz.exe`.                           |
+| macOS (Apple Silicon) | [GoEzviz-1.0.0-macos-arm64.zip](https://github.com/lunodesouza/GoEzviz/releases/download/1.0.0-with-ffmpeg-completed/GoEzviz-1.0.0-macos-arm64.zip)                                                 | Requires FFmpeg (`brew install ffmpeg`). Intel Macs: build from source. |
+| Linux                 | —                                                                                                                                                                                                   | No binary yet — [build from source](#build).                            |
+
+
+
 
 ## Features
 
@@ -40,11 +33,15 @@ Latest: **[1.0.0-with-ffmpeg-completed](https://github.com/lunodesouza/GoEzviz/r
 - Microphone listing on Windows (DirectShow) and macOS (AVFoundation)
 - Auto-reconnect and saved settings; passwords protected with DPAPI (Windows) or AES-256 (Linux/macOS)
 
+
+
 ## Requirements
 
 - [Go 1.25+](https://go.dev/dl/)
 - A C compiler (required by Fyne)
 - FFmpeg (`ffmpeg` and `ffplay`): the Windows zip ships them next to the app. On Linux/macOS, install FFmpeg (or, on Windows, run `scripts/fetch-ffmpeg-windows.ps1` when building from source).
+
+
 
 ## Build
 
