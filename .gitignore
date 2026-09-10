@@ -8,6 +8,10 @@
 *.test
 *.out
 
+# Cursor / plans
+.cursor/
+plans/
+
 # OS
 .DS_Store
 Thumbs.db
