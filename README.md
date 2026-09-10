@@ -1,5 +1,9 @@
 # GoEzviz
 
+<p align="center">
+  <img src="assets/icon.png" alt="GoEzviz" width="160">
+</p>
+
 Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP — no cloud, no account.
 
 **Homologated camera:** [EZVIZ H9c](https://www.ezviz.com/) (both lenses — main and secondary). Other ONVIF cameras may work, but only the H9c has been validated.
@@ -43,7 +47,7 @@ brew install go ffmpeg
 go build -ldflags "-s -w" -o GoEzviz .
 ```
 
-On first Talk use, macOS may ask for microphone permission. Use **Allow mic** in the toolbar to open **System Settings → Privacy & Security → Microphone**, or allow access for GoEzviz (or Terminal when using `go run`).
+On first Talk use, macOS may ask for microphone permission. If access is denied, GoEzviz opens **System Settings → Privacy & Security → Microphone** so you can allow GoEzviz (or Terminal when using `go run`).
 
 ## Usage
 

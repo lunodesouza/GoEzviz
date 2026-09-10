@@ -638,9 +638,9 @@ func microphoneError(err error) error {
 		strings.Contains(message, "input/output error") {
 		switch runtime.GOOS {
 		case "darwin":
-			return fmt.Errorf("nao foi possivel abrir o microfone. Verifique o dispositivo ou use Liberar mic: %w", err)
+			return fmt.Errorf("nao foi possivel abrir o microfone. Verifique o dispositivo e a permissao do macOS: %w", err)
 		case "windows":
-			return fmt.Errorf("nao foi possivel abrir o microfone. Verifique o dispositivo ou use Liberar mic: %w", err)
+			return fmt.Errorf("nao foi possivel abrir o microfone. Verifique o dispositivo e a permissao do Windows: %w", err)
 		default:
 			return fmt.Errorf("nao foi possivel abrir o microfone. Verifique o dispositivo selecionado: %w", err)
 		}
