@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -82,9 +83,35 @@ func TestTalkPacerStopsOnCancelledContext(t *testing.T) {
 }
 
 func TestMicrophoneErrorMapsPermission(t *testing.T) {
-	err := microphoneError(errors.New("dshow permission denied"))
-	if !strings.Contains(err.Error(), "Windows bloqueou o microfone") {
-		t.Fatalf("permission error was not mapped: %v", err)
+	original := openMicPrivacySettings
+	opened := false
+	openMicPrivacySettings = func() error {
+		opened = true
+		return nil
+	}
+	t.Cleanup(func() { openMicPrivacySettings = original })
+
+	err := microphoneError(errors.New("avfoundation permission denied"))
+	if err == nil {
+		t.Fatal("expected mapped permission error")
+	}
+	if !opened {
+		t.Fatal("expected microphone privacy settings to open")
+	}
+	message := strings.ToLower(err.Error())
+	switch runtime.GOOS {
+	case "darwin":
+		if !strings.Contains(message, "macos") {
+			t.Fatalf("permission error was not mapped for macOS: %v", err)
+		}
+	case "windows":
+		if !strings.Contains(message, "windows") {
+			t.Fatalf("permission error was not mapped for Windows: %v", err)
+		}
+	default:
+		if !strings.Contains(message, "microfone") {
+			t.Fatalf("permission error was not mapped: %v", err)
+		}
 	}
 }
 

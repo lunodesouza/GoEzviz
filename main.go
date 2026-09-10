@@ -114,22 +114,24 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 	}
 
 	var (
-		devicesButton   *widget.Button
-		connectButton   *widget.Button
-		fpsLabel        *widget.Label
-		resolutionLabel *widget.Label
-		microphoneLabel *widget.Label
-		languageLabel   *widget.Label
-		autoConnect     *widget.Check
-		resolution      *widget.Select
-		language        *widget.Select
-		rebuild         func()
+		devicesButton      *widget.Button
+		connectButton      *widget.Button
+		micPrivacyButton   *widget.Button
+		fpsLabel           *widget.Label
+		resolutionLabel    *widget.Label
+		microphoneLabel    *widget.Label
+		languageLabel      *widget.Label
+		autoConnect        *widget.Check
+		resolution         *widget.Select
+		language           *widget.Select
+		rebuild            func()
 	)
 
 	var applyChromeLanguage func()
 	applyChromeLanguage = func() {
 		devicesButton.SetText(T("Devices"))
 		connectButton.SetText(T("Connect"))
+		micPrivacyButton.SetText(T("AllowMic"))
 		fpsLabel.SetText(T("FPS"))
 		resolutionLabel.SetText(T("Resolution"))
 		microphoneLabel.SetText(T("Microphone"))
@@ -221,6 +223,14 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 		status.SetText(T("MicrophonesError", map[string]string{"Error": microphoneErr.Error()}))
 	}
 
+	micPrivacyButton = widget.NewButton(T("AllowMic"), func() {
+		if err := openMicrophonePrivacySettings(); err != nil {
+			status.SetText(T("AllowMicError", map[string]string{"Error": err.Error()}))
+			return
+		}
+		status.SetText(T("AllowMicOpened"))
+	})
+
 	autoConnect = widget.NewCheck(T("ReconnectOnOpen"), func(enabled bool) {
 		settings.AutoConnect = enabled
 		saveSettings()
@@ -245,6 +255,7 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 		container.NewGridWrap(fyne.NewSize(125, resolution.MinSize().Height), resolution),
 		microphoneLabel,
 		container.NewGridWrap(fyne.NewSize(230, microphone.MinSize().Height), microphone),
+		micPrivacyButton,
 		languageLabel,
 		container.NewGridWrap(fyne.NewSize(120, language.MinSize().Height), language),
 		autoConnect,

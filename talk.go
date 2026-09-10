@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -25,6 +26,9 @@ import (
 )
 
 const microphonePacketDuration = 20 * time.Millisecond
+
+// openMicPrivacySettings opens the OS microphone privacy page. Tests may replace it.
+var openMicPrivacySettings = openMicrophonePrivacySettings
 
 type cameraTalk struct {
 	mu         sync.Mutex
@@ -617,13 +621,29 @@ func microphoneError(err error) error {
 		strings.Contains(message, "access is denied") ||
 		strings.Contains(message, "denied") ||
 		strings.Contains(message, "not permitted") {
-		return errors.New("Windows bloqueou o microfone. Em Configuracoes > Privacidade e seguranca > Microfone, permita que aplicativos desktop acessem o microfone")
+		_ = openMicPrivacySettings()
+		switch runtime.GOOS {
+		case "darwin":
+			return errors.New("macOS bloqueou o microfone. Abrindo Ajustes > Privacidade e Seguranca > Microfone — permita o GoEzviz (e o Terminal, se usar go run)")
+		case "windows":
+			return errors.New("Windows bloqueou o microfone. Abrindo Configuracoes > Privacidade > Microfone — permita aplicativos desktop")
+		default:
+			return errors.New("acesso ao microfone foi negado pelo sistema")
+		}
 	}
 	if strings.Contains(message, "i/o error") ||
 		strings.Contains(message, "could not find") ||
 		strings.Contains(message, "failed to fill") ||
-		strings.Contains(message, "error opening") {
-		return fmt.Errorf("nao foi possivel abrir o microfone. Verifique o dispositivo selecionado e a permissao do Windows: %w", err)
+		strings.Contains(message, "error opening") ||
+		strings.Contains(message, "input/output error") {
+		switch runtime.GOOS {
+		case "darwin":
+			return fmt.Errorf("nao foi possivel abrir o microfone. Verifique o dispositivo ou use Liberar mic: %w", err)
+		case "windows":
+			return fmt.Errorf("nao foi possivel abrir o microfone. Verifique o dispositivo ou use Liberar mic: %w", err)
+		default:
+			return fmt.Errorf("nao foi possivel abrir o microfone. Verifique o dispositivo selecionado: %w", err)
+		}
 	}
 	return err
 }

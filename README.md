@@ -11,7 +11,7 @@ Lightweight IP camera viewer written in Go. Talks to cameras over ONVIF and RTSP
 - Automatic ONVIF discovery on the LAN
 - Multiple cameras and profiles in a grid; double-click to maximize
 - Camera audio, volume control, and PTZ (arrow keys)
-- **Talk**: sends the PC microphone to the camera speaker (AAC backchannel)
+- **Talk**: sends the PC microphone to the camera speaker (AAC backchannel); microphone listing works on Windows (DirectShow) and macOS (AVFoundation)
 - Auto-reconnect and saved settings; passwords protected with DPAPI (Windows) or AES-256 (Linux/macOS)
 
 ## Requirements
@@ -42,6 +42,8 @@ xcode-select --install
 brew install go ffmpeg
 go build -ldflags "-s -w" -o GoEzviz .
 ```
+
+On first Talk use, macOS may ask for microphone permission. Use **Allow mic** in the toolbar to open **System Settings → Privacy & Security → Microphone**, or allow access for GoEzviz (or Terminal when using `go run`).
 
 ## Usage
 
