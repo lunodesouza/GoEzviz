@@ -1,0 +1,13 @@
+# Built binaries
+/ezviz-viewer
+/ezviz-viewer.exe
+/GoEzviz
+/GoEzviz.exe
+/GoEzvizLan
+/GoEzvizLan.exe
+*.test
+*.out
+
+# OS
+.DS_Store
+Thumbs.db
