@@ -1,6 +1,9 @@
 # GoEzviz
 
-![GoEzviz](assets/icon.png)
+<p align="center">
+  <img src="assets/icon.png" alt="GoEzviz" width="110">
+
+</p>
 
 ![Go 1.25+](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)![Windows, Linux, macOS](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)![ONVIF / RTSP](https://img.shields.io/badge/protocol-ONVIF%20%2F%20RTSP-2ea44f)
 
