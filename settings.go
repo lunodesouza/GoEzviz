@@ -45,6 +45,15 @@ type deviceSettings struct {
 	Password          string            `json:"-"`
 	DeviceServiceURL  string            `json:"device_service_url,omitempty"`
 	Profiles          []profileSettings `json:"profiles"`
+	PTZFavorites      []ptzFavorite     `json:"ptz_favorites,omitempty"`
+}
+
+type ptzFavorite struct {
+	Name        string  `json:"name"`
+	Pan         float64 `json:"pan,omitempty"`
+	Tilt        float64 `json:"tilt,omitempty"`
+	Zoom        float64 `json:"zoom,omitempty"`
+	PresetToken string  `json:"preset_token,omitempty"`
 }
 
 type profileSettings struct {
@@ -449,6 +458,36 @@ func (settings appSettings) clone() appSettings {
 	settings.Devices = append([]deviceSettings(nil), settings.Devices...)
 	for index := range settings.Devices {
 		settings.Devices[index].Profiles = append([]profileSettings(nil), settings.Devices[index].Profiles...)
+		settings.Devices[index].PTZFavorites = append([]ptzFavorite(nil), settings.Devices[index].PTZFavorites...)
 	}
 	return settings
+}
+
+func upsertPTZFavorite(favorites []ptzFavorite, favorite ptzFavorite) []ptzFavorite {
+	for index := range favorites {
+		if strings.EqualFold(favorites[index].Name, favorite.Name) {
+			favorites[index] = favorite
+			return favorites
+		}
+	}
+	return append(favorites, favorite)
+}
+
+func removePTZFavorite(favorites []ptzFavorite, name string) []ptzFavorite {
+	next := make([]ptzFavorite, 0, len(favorites))
+	for _, favorite := range favorites {
+		if !strings.EqualFold(favorite.Name, name) {
+			next = append(next, favorite)
+		}
+	}
+	return next
+}
+
+func findPTZFavorite(favorites []ptzFavorite, name string) (ptzFavorite, bool) {
+	for _, favorite := range favorites {
+		if strings.EqualFold(favorite.Name, name) {
+			return favorite, true
+		}
+	}
+	return ptzFavorite{}, false
 }

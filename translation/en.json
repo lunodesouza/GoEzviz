@@ -79,5 +79,16 @@
   "PreparingMic": "Preparing microphone... speak and watch the indicator turn green",
   "PTZNotReady": "PTZ is not ready yet",
   "PTZError": "PTZ error: {{.Error}}",
-  "PTZStopError": "Error stopping PTZ: {{.Error}}"
+  "PTZStopError": "Error stopping PTZ: {{.Error}}",
+  "PTZFavorites": "Favorites",
+  "PTZNoFavorites": "No favorites",
+  "PTZSaveFavorite": "Save PTZ favorite",
+  "PTZFavoriteName": "Favorite name",
+  "PTZFavoriteNeedName": "Enter a name for the favorite",
+  "PTZFavoriteSaved": "Favorite saved: {{.Name}}",
+  "PTZFavoriteGoto": "Moving to {{.Name}}",
+  "PTZFavoriteRemoved": "Favorite removed: {{.Name}}",
+  "PTZRemoveFavorite": "Remove…",
+  "PTZFavoriteError": "PTZ favorite error: {{.Error}}",
+  "Save": "Save"
 }

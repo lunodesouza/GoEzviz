@@ -71,7 +71,7 @@ func showLanguagePrompt(window fyne.Window, settings *appSettings, onDone func()
 
 func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loadErr error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	grid := newGridManager(ctx)
+	grid := newGridManager(ctx, window)
 	running := false
 
 	status := widget.NewLabel(T("Ready"))
@@ -108,6 +108,16 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 					profile.Selected = profile.Token == profileToken
 				}
 			}
+			break
+		}
+		saveSettings()
+	}
+	grid.onPTZFavorites = func(deviceID string, favorites []ptzFavorite) {
+		for deviceIndex := range settings.Devices {
+			if settings.Devices[deviceIndex].ID != deviceID {
+				continue
+			}
+			settings.Devices[deviceIndex].PTZFavorites = append([]ptzFavorite(nil), favorites...)
 			break
 		}
 		saveSettings()

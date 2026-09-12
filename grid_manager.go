@@ -11,17 +11,20 @@ import (
 )
 
 type gridManager struct {
-	parent    context.Context
-	container *fyne.Container
-	tiles     []*cameraTile
-	maximized string
-	onVolume  func(int)
-	onProfile func(deviceID, sourceToken, profileToken string)
+	parent         context.Context
+	window         fyne.Window
+	container      *fyne.Container
+	tiles          []*cameraTile
+	maximized      string
+	onVolume       func(int)
+	onProfile      func(deviceID, sourceToken, profileToken string)
+	onPTZFavorites func(deviceID string, favorites []ptzFavorite)
 }
 
-func newGridManager(parent context.Context) *gridManager {
+func newGridManager(parent context.Context, window fyne.Window) *gridManager {
 	return &gridManager{
 		parent:    parent,
+		window:    window,
 		container: container.New(layout.NewGridLayoutWithColumns(1), widget.NewLabel(T("OpenDevicesHint"))),
 	}
 }
@@ -34,6 +37,7 @@ func (manager *gridManager) rebuild(settings appSettings) {
 		Microphone:     settings.Microphone,
 		OnVolume:       manager.onVolume,
 		OnProfile:      manager.onProfile,
+		OnPTZFavorites: manager.onPTZFavorites,
 	}
 	existing := make(map[string]*cameraTile, len(manager.tiles))
 	for _, tile := range manager.tiles {
@@ -68,14 +72,16 @@ func (manager *gridManager) rebuild(settings appSettings) {
 			id := cameraTileID(device, *selected)
 			if tile := existing[id]; tile != nil && tileCanBeReused(tile, device, profiles, preferences) {
 				delete(existing, id)
+				tile.device.PTZFavorites = append([]ptzFavorite(nil), device.PTZFavorites...)
 				tile.updatePreferences(preferences)
+				tile.refreshFavoriteSelect()
 				if tile.profile.Token != selected.Token {
 					tile.selectProfile(*selected)
 				}
 				nextTiles = append(nextTiles, tile)
 				continue
 			}
-			tile := newCameraTile(manager.parent, device, *selected, profiles, preferences, manager.toggleMaximize)
+			tile := newCameraTile(manager.parent, manager.window, device, *selected, profiles, preferences, manager.toggleMaximize)
 			nextTiles = append(nextTiles, tile)
 		}
 	}

@@ -79,5 +79,16 @@
   "PreparingMic": "Preparando microfone... fale e veja a bolinha ficar verde",
   "PTZNotReady": "PTZ ainda nao esta pronto",
   "PTZError": "Erro PTZ: {{.Error}}",
-  "PTZStopError": "Erro ao parar PTZ: {{.Error}}"
+  "PTZStopError": "Erro ao parar PTZ: {{.Error}}",
+  "PTZFavorites": "Favoritos",
+  "PTZNoFavorites": "Sem favoritos",
+  "PTZSaveFavorite": "Salvar favorito PTZ",
+  "PTZFavoriteName": "Nome do favorito",
+  "PTZFavoriteNeedName": "Informe um nome para o favorito",
+  "PTZFavoriteSaved": "Favorito salvo: {{.Name}}",
+  "PTZFavoriteGoto": "Indo para {{.Name}}",
+  "PTZFavoriteRemoved": "Favorito removido: {{.Name}}",
+  "PTZRemoveFavorite": "Remover…",
+  "PTZFavoriteError": "Erro no favorito PTZ: {{.Error}}",
+  "Save": "Salvar"
 }

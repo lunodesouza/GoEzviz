@@ -23,6 +23,11 @@ const (
 	profilesAction        = "http://www.onvif.org/ver10/media/wsdl/GetProfiles"
 	moveAction            = "http://www.onvif.org/ver20/ptz/wsdl/ContinuousMove"
 	stopAction            = "http://www.onvif.org/ver20/ptz/wsdl/Stop"
+	getStatusAction       = "http://www.onvif.org/ver20/ptz/wsdl/GetStatus"
+	absoluteMoveAction    = "http://www.onvif.org/ver20/ptz/wsdl/AbsoluteMove"
+	setPresetAction       = "http://www.onvif.org/ver20/ptz/wsdl/SetPreset"
+	gotoPresetAction      = "http://www.onvif.org/ver20/ptz/wsdl/GotoPreset"
+	removePresetAction    = "http://www.onvif.org/ver20/ptz/wsdl/RemovePreset"
 	getAudioOutputsAction = "http://www.onvif.org/ver10/media/wsdl/GetAudioOutputConfigurations"
 	setAudioOutputAction  = "http://www.onvif.org/ver10/media/wsdl/SetAudioOutputConfiguration"
 )
@@ -118,6 +123,196 @@ func (c *onvifClient) stop(ctx context.Context) error {
 	return err
 }
 
+const (
+	defaultPanTiltSpace = "http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace"
+	defaultZoomSpace    = "http://www.onvif.org/ver10/tptz/ZoomSpaces/PositionGenericSpace"
+)
+
+type ptzPosition struct {
+	Pan          float64
+	Tilt         float64
+	Zoom         float64
+	PanTiltSpace string
+	ZoomSpace    string
+}
+
+func (c *onvifClient) getPTZStatus(ctx context.Context) (ptzPosition, error) {
+	if c.profileToken == "" {
+		return ptzPosition{}, errors.New("perfil PTZ ainda nao foi carregado")
+	}
+	body := fmt.Sprintf(
+		`<tptz:GetStatus><tptz:ProfileToken>%s</tptz:ProfileToken></tptz:GetStatus>`,
+		xmlText(c.profileToken),
+	)
+	response, err := c.request(ctx, c.ptzURL, getStatusAction, body)
+	if err != nil {
+		return ptzPosition{}, err
+	}
+	return parsePTZStatus(response)
+}
+
+func parsePTZStatus(data []byte) (ptzPosition, error) {
+	var payload struct {
+		Body struct {
+			Response struct {
+				Status struct {
+					Position struct {
+						PanTilt struct {
+							X     float64 `xml:"x,attr"`
+							Y     float64 `xml:"y,attr"`
+							Space string  `xml:"space,attr"`
+						} `xml:"PanTilt"`
+						Zoom struct {
+							X     float64 `xml:"x,attr"`
+							Space string  `xml:"space,attr"`
+						} `xml:"Zoom"`
+					} `xml:"Position"`
+				} `xml:"PTZStatus"`
+			} `xml:"GetStatusResponse"`
+		} `xml:"Body"`
+	}
+	if err := xml.Unmarshal(data, &payload); err != nil {
+		return ptzPosition{}, fmt.Errorf("status PTZ invalido: %w", err)
+	}
+	position := payload.Body.Response.Status.Position
+	result := ptzPosition{
+		Pan:          position.PanTilt.X,
+		Tilt:         position.PanTilt.Y,
+		Zoom:         position.Zoom.X,
+		PanTiltSpace: position.PanTilt.Space,
+		ZoomSpace:    position.Zoom.Space,
+	}
+	if result.PanTiltSpace == "" {
+		result.PanTiltSpace = defaultPanTiltSpace
+	}
+	if result.ZoomSpace == "" {
+		result.ZoomSpace = defaultZoomSpace
+	}
+	return result, nil
+}
+
+func (c *onvifClient) absoluteMove(ctx context.Context, position ptzPosition) error {
+	if c.profileToken == "" {
+		return errors.New("perfil PTZ ainda nao foi carregado")
+	}
+	panSpace := position.PanTiltSpace
+	if panSpace == "" {
+		panSpace = defaultPanTiltSpace
+	}
+	zoomSpace := position.ZoomSpace
+	if zoomSpace == "" {
+		zoomSpace = defaultZoomSpace
+	}
+	body := fmt.Sprintf(
+		`<tptz:AbsoluteMove><tptz:ProfileToken>%s</tptz:ProfileToken><tptz:Position><tt:PanTilt x="%.6f" y="%.6f" space="%s"/><tt:Zoom x="%.6f" space="%s"/></tptz:Position></tptz:AbsoluteMove>`,
+		xmlText(c.profileToken),
+		position.Pan, position.Tilt, xmlText(panSpace),
+		position.Zoom, xmlText(zoomSpace),
+	)
+	_, err := c.request(ctx, c.ptzURL, absoluteMoveAction, body)
+	return err
+}
+
+func (c *onvifClient) setPreset(ctx context.Context, name, presetToken string) (string, error) {
+	if c.profileToken == "" {
+		return "", errors.New("perfil PTZ ainda nao foi carregado")
+	}
+	tokenXML := ""
+	if presetToken != "" {
+		tokenXML = "<tptz:PresetToken>" + xmlText(presetToken) + "</tptz:PresetToken>"
+	}
+	body := fmt.Sprintf(
+		`<tptz:SetPreset><tptz:ProfileToken>%s</tptz:ProfileToken><tptz:PresetName>%s</tptz:PresetName>%s</tptz:SetPreset>`,
+		xmlText(c.profileToken), xmlText(name), tokenXML,
+	)
+	response, err := c.request(ctx, c.ptzURL, setPresetAction, body)
+	if err != nil {
+		return "", err
+	}
+	token := parsePresetToken(response)
+	if token == "" {
+		token = presetToken
+	}
+	if token == "" {
+		return "", errors.New("a camera nao devolveu o token do preset")
+	}
+	return token, nil
+}
+
+func parsePresetToken(data []byte) string {
+	var payload struct {
+		Body struct {
+			Response struct {
+				PresetToken string `xml:"PresetToken"`
+			} `xml:"SetPresetResponse"`
+		} `xml:"Body"`
+	}
+	if err := xml.Unmarshal(data, &payload); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.Body.Response.PresetToken)
+}
+
+func (c *onvifClient) gotoPreset(ctx context.Context, presetToken string) error {
+	if c.profileToken == "" {
+		return errors.New("perfil PTZ ainda nao foi carregado")
+	}
+	if presetToken == "" {
+		return errors.New("preset sem token")
+	}
+	body := fmt.Sprintf(
+		`<tptz:GotoPreset><tptz:ProfileToken>%s</tptz:ProfileToken><tptz:PresetToken>%s</tptz:PresetToken><tptz:Speed><tt:PanTilt x="0.5" y="0.5"/><tt:Zoom x="0.5"/></tptz:Speed></tptz:GotoPreset>`,
+		xmlText(c.profileToken), xmlText(presetToken),
+	)
+	_, err := c.request(ctx, c.ptzURL, gotoPresetAction, body)
+	return err
+}
+
+func (c *onvifClient) removePreset(ctx context.Context, presetToken string) error {
+	if c.profileToken == "" {
+		return errors.New("perfil PTZ ainda nao foi carregado")
+	}
+	if presetToken == "" {
+		return nil
+	}
+	body := fmt.Sprintf(
+		`<tptz:RemovePreset><tptz:ProfileToken>%s</tptz:ProfileToken><tptz:PresetToken>%s</tptz:PresetToken></tptz:RemovePreset>`,
+		xmlText(c.profileToken), xmlText(presetToken),
+	)
+	_, err := c.request(ctx, c.ptzURL, removePresetAction, body)
+	return err
+}
+
+func soapFaultText(data []byte) string {
+	var payload struct {
+		Body struct {
+			Fault struct {
+				FaultString string `xml:"faultstring"`
+				Reason      struct {
+					Text string `xml:"Text"`
+				} `xml:"Reason"`
+				Code struct {
+					Value   string `xml:"Value"`
+					Subcode struct {
+						Value string `xml:"Value"`
+					} `xml:"Subcode"`
+				} `xml:"Code"`
+			} `xml:"Fault"`
+		} `xml:"Body"`
+	}
+	if err := xml.Unmarshal(data, &payload); err != nil {
+		return ""
+	}
+	fault := payload.Body.Fault
+	for _, value := range []string{fault.Reason.Text, fault.FaultString, fault.Code.Subcode.Value, fault.Code.Value} {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func (c *onvifClient) setAudioOutputLevel(ctx context.Context, level int) error {
 	response, err := c.request(ctx, c.mediaURL, getAudioOutputsAction, `<trt:GetAudioOutputConfigurations/>`)
 	if err != nil {
@@ -201,9 +396,15 @@ func (c *onvifClient) request(ctx context.Context, endpoint, action, body string
 		return nil, err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		if text := soapFaultText(data); text != "" {
+			return nil, fmt.Errorf("HTTP %d: %s", response.StatusCode, text)
+		}
 		return nil, fmt.Errorf("HTTP %d: %s", response.StatusCode, compactXML(data))
 	}
 	if bytes.Contains(data, []byte(":Fault>")) || bytes.Contains(data, []byte("<Fault>")) {
+		if text := soapFaultText(data); text != "" {
+			return nil, errors.New(text)
+		}
 		return nil, fmt.Errorf("falha SOAP: %s", compactXML(data))
 	}
 	return data, nil

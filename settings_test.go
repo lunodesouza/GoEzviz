@@ -32,6 +32,7 @@ func TestSettingsV2MultipleDevicesRoundTrip(t *testing.T) {
 					RTSPURL: "rtsp://192.0.2.10/live", FallbackChannel: "101",
 					Resolution: "2560x1440", Codec: "H264", PTZ: true, Audio: true, Selected: true,
 				}},
+				PTZFavorites: []ptzFavorite{{Name: "Portao", Pan: 0.2, Tilt: -0.1, Zoom: 0.4}},
 			},
 			{
 				ID: "garage", Name: "Garagem", Host: "192.0.2.11",
@@ -81,6 +82,10 @@ func TestSettingsV2MultipleDevicesRoundTrip(t *testing.T) {
 	}
 	if loaded.Devices[0].Password != "entrada-secret" || loaded.Devices[1].Password != "garage-secret" {
 		t.Fatalf("device passwords were not restored: %+v", loaded.Devices)
+	}
+	if len(loaded.Devices[0].PTZFavorites) != 1 || loaded.Devices[0].PTZFavorites[0].Name != "Portao" ||
+		loaded.Devices[0].PTZFavorites[0].Pan != 0.2 {
+		t.Fatalf("PTZ favorites were not preserved: %+v", loaded.Devices[0].PTZFavorites)
 	}
 	if loaded.Host != "192.0.2.10" || loaded.Password != "entrada-secret" {
 		t.Fatalf("selected device was not projected to the compatibility view: %+v", loaded)

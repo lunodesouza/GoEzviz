@@ -32,6 +32,7 @@ releases: [Releases](https://github.com/lunodesouza/GoEzviz/releases).
 - Automatic ONVIF discovery on the LAN
 - Multiple cameras and profiles in a grid; double-click to maximize
 - Camera audio, volume control, and PTZ (arrow keys)
+- **PTZ favorites**: star next to the D-pad saves the current position (name it); pick a favorite from the list to send the camera there (ONVIF presets, per camera)
 - **Talk**: sends the PC microphone to the camera speaker (AAC backchannel)
 - Microphone listing on Windows (DirectShow) and macOS (AVFoundation)
 - Auto-reconnect and saved settings; passwords protected with DPAPI (Windows) or AES-256 (Linux/macOS)
@@ -83,6 +84,8 @@ After changing `assets/icon.png`, regenerate `icon.icns` with `./scripts/make-ic
 ## Usage
 
 Open the app, click **Devices**, use **Discover LAN** or add an IP, enter the camera username and password, refresh ONVIF profiles, and select the ones you want. Then click **Connect**.
+
+On a PTZ lens, use the on-screen pad (or arrow keys) to move. Click **★**, enter a name, and save a favorite; choose it from the list to go back to that position.
 
 On first **Talk** on macOS, the system may ask for microphone access. If it is denied, GoEzviz opens **System Settings → Privacy & Security → Microphone**.
 

@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -24,6 +26,7 @@ type tilePreferences struct {
 	Microphone     string
 	OnVolume       func(int)
 	OnProfile      func(deviceID, sourceToken, profileToken string)
+	OnPTZFavorites func(deviceID string, favorites []ptzFavorite)
 }
 
 type doubleTapWidget struct {
@@ -55,6 +58,7 @@ type cameraTile struct {
 	profiles []profileSettings
 	prefs    tilePreferences
 	parent   context.Context
+	window   fyne.Window
 
 	root           *doubleTapWidget
 	stream         *videoStream
@@ -65,11 +69,12 @@ type cameraTile struct {
 	loading        *widget.Activity
 	loadingOverlay *fyne.Container
 
-	soundButton   *widget.Button
-	talkButton    *widget.Button
-	micIndicator  *canvas.Circle
-	volume        int
-	audioVerified string
+	soundButton    *widget.Button
+	talkButton     *widget.Button
+	micIndicator   *canvas.Circle
+	favoriteSelect *widget.Select
+	volume         int
+	audioVerified  string
 
 	mu         sync.Mutex
 	ctx        context.Context
@@ -82,6 +87,7 @@ type cameraTile struct {
 
 func newCameraTile(
 	parent context.Context,
+	window fyne.Window,
 	device deviceSettings,
 	profile profileSettings,
 	profiles []profileSettings,
@@ -95,6 +101,7 @@ func newCameraTile(
 		profiles: append([]profileSettings(nil), profiles...),
 		prefs:    prefs,
 		parent:   parent,
+		window:   window,
 		stream:   newVideoStream(),
 		status:   widget.NewLabel(T("WaitingConnection")),
 		audio:    &cameraAudio{},
@@ -250,6 +257,7 @@ func (tile *cameraTile) updatePreferences(preferences tilePreferences) {
 	tile.prefs.Microphone = preferences.Microphone
 	tile.prefs.OnVolume = preferences.OnVolume
 	tile.prefs.OnProfile = preferences.OnProfile
+	tile.prefs.OnPTZFavorites = preferences.OnPTZFavorites
 	if microphoneChanged && tile.talk.isActive() {
 		tile.talk.stop()
 		if tile.talkButton != nil {
@@ -265,15 +273,200 @@ func (tile *cameraTile) buildPTZControls() fyne.CanvasObject {
 	left := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() { tile.move(-0.55, 0) })
 	right := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() { tile.move(0.55, 0) })
 	stop := widget.NewButtonWithIcon("", theme.MediaStopIcon(), tile.stopPTZ)
+	star := widget.NewButton("★", tile.promptSavePTZFavorite)
+	star.Importance = widget.LowImportance
+	tile.favoriteSelect = widget.NewSelect(nil, tile.onPTZFavoriteSelected)
+	tile.refreshFavoriteSelect()
 	controls := container.NewGridWithColumns(3,
 		layout.NewSpacer(), up, layout.NewSpacer(),
 		left, stop, right,
 		layout.NewSpacer(), down, layout.NewSpacer(),
 	)
+	favorites := container.NewVBox(
+		star,
+		container.NewGridWrap(fyne.NewSize(140, tile.favoriteSelect.MinSize().Height), tile.favoriteSelect),
+	)
 	return container.NewPadded(container.NewBorder(
-		container.NewHBox(layout.NewSpacer(), controls),
+		container.NewHBox(layout.NewSpacer(), controls, favorites),
 		nil, nil, nil, layout.NewSpacer(),
 	))
+}
+
+func (tile *cameraTile) favoriteSelectPlaceholder() string {
+	if len(tile.device.PTZFavorites) == 0 {
+		return T("PTZNoFavorites")
+	}
+	return T("PTZFavorites")
+}
+
+func (tile *cameraTile) refreshFavoriteSelect() {
+	if tile.favoriteSelect == nil {
+		return
+	}
+	options := []string{tile.favoriteSelectPlaceholder()}
+	for _, favorite := range tile.device.PTZFavorites {
+		options = append(options, favorite.Name)
+	}
+	if len(tile.device.PTZFavorites) > 0 {
+		options = append(options, T("PTZRemoveFavorite"))
+	}
+	tile.favoriteSelect.Options = options
+	tile.favoriteSelect.ClearSelected()
+	tile.favoriteSelect.SetSelected(options[0])
+	tile.favoriteSelect.Refresh()
+}
+
+func (tile *cameraTile) persistPTZFavorites() {
+	tile.mu.Lock()
+	favorites := append([]ptzFavorite(nil), tile.device.PTZFavorites...)
+	tile.mu.Unlock()
+	if tile.prefs.OnPTZFavorites != nil {
+		tile.prefs.OnPTZFavorites(tile.device.ID, favorites)
+	}
+	fyne.Do(tile.refreshFavoriteSelect)
+}
+
+func (tile *cameraTile) promptSavePTZFavorite() {
+	if tile.window == nil {
+		return
+	}
+	name := widget.NewEntry()
+	name.SetPlaceHolder(T("PTZFavoriteName"))
+	dialog.ShowForm(T("PTZSaveFavorite"), T("Save"), T("Close"), []*widget.FormItem{
+		widget.NewFormItem(T("Name"), name),
+	}, func(confirmed bool) {
+		if !confirmed {
+			return
+		}
+		label := strings.TrimSpace(name.Text)
+		if label == "" {
+			tile.setStatus(T("PTZFavoriteNeedName"))
+			return
+		}
+		tile.savePTZFavorite(label)
+	}, tile.window)
+}
+
+func (tile *cameraTile) savePTZFavorite(name string) {
+	tile.mu.Lock()
+	client := tile.client
+	existing, _ := findPTZFavorite(tile.device.PTZFavorites, name)
+	tile.mu.Unlock()
+	if client == nil || client.profileToken == "" {
+		tile.setStatus(T("PTZNotReady"))
+		return
+	}
+	go func() {
+		tile.ptzMu.Lock()
+		defer tile.ptzMu.Unlock()
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+		token, err := client.setPreset(ctx, name, existing.PresetToken)
+		if err != nil {
+			tile.setStatus(T("PTZFavoriteError", map[string]string{"Error": err.Error()}))
+			return
+		}
+		favorite := ptzFavorite{Name: name, PresetToken: token, Pan: existing.Pan, Tilt: existing.Tilt, Zoom: existing.Zoom}
+		if position, statusErr := client.getPTZStatus(ctx); statusErr == nil {
+			favorite.Pan, favorite.Tilt, favorite.Zoom = position.Pan, position.Tilt, position.Zoom
+		}
+		tile.mu.Lock()
+		tile.device.PTZFavorites = upsertPTZFavorite(tile.device.PTZFavorites, favorite)
+		tile.mu.Unlock()
+		tile.persistPTZFavorites()
+		tile.setStatus(T("PTZFavoriteSaved", map[string]string{"Name": name}))
+	}()
+}
+
+func (tile *cameraTile) onPTZFavoriteSelected(option string) {
+	placeholder := tile.favoriteSelectPlaceholder()
+	if option == "" || option == placeholder {
+		return
+	}
+	if option == T("PTZRemoveFavorite") {
+		tile.promptRemovePTZFavorite()
+		return
+	}
+	favorite, ok := findPTZFavorite(tile.device.PTZFavorites, option)
+	if !ok {
+		return
+	}
+	tile.gotoPTZFavorite(favorite)
+}
+
+func (tile *cameraTile) promptRemovePTZFavorite() {
+	if tile.window == nil || len(tile.device.PTZFavorites) == 0 {
+		tile.refreshFavoriteSelect()
+		return
+	}
+	names := make([]string, 0, len(tile.device.PTZFavorites))
+	for _, favorite := range tile.device.PTZFavorites {
+		names = append(names, favorite.Name)
+	}
+	choice := widget.NewSelect(names, nil)
+	choice.SetSelected(names[0])
+	dialog.ShowCustomConfirm(T("PTZRemoveFavorite"), T("Remove"), T("Close"), choice, func(confirmed bool) {
+		tile.refreshFavoriteSelect()
+		if !confirmed || choice.Selected == "" {
+			return
+		}
+		tile.removePTZFavoriteByName(choice.Selected)
+	}, tile.window)
+}
+
+func (tile *cameraTile) removePTZFavoriteByName(name string) {
+	tile.mu.Lock()
+	client := tile.client
+	favorite, ok := findPTZFavorite(tile.device.PTZFavorites, name)
+	tile.mu.Unlock()
+	if !ok {
+		return
+	}
+	go func() {
+		if client != nil && favorite.PresetToken != "" {
+			tile.ptzMu.Lock()
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+			_ = client.removePreset(ctx, favorite.PresetToken)
+			cancel()
+			tile.ptzMu.Unlock()
+		}
+		tile.mu.Lock()
+		tile.device.PTZFavorites = removePTZFavorite(tile.device.PTZFavorites, name)
+		tile.mu.Unlock()
+		tile.persistPTZFavorites()
+		tile.setStatus(T("PTZFavoriteRemoved", map[string]string{"Name": name}))
+	}()
+}
+
+func (tile *cameraTile) gotoPTZFavorite(favorite ptzFavorite) {
+	tile.mu.Lock()
+	client := tile.client
+	tile.mu.Unlock()
+	if client == nil || client.profileToken == "" {
+		tile.setStatus(T("PTZNotReady"))
+		tile.refreshFavoriteSelect()
+		return
+	}
+	go func() {
+		tile.ptzMu.Lock()
+		defer tile.ptzMu.Unlock()
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+		var err error
+		if favorite.PresetToken != "" {
+			err = client.gotoPreset(ctx, favorite.PresetToken)
+		} else {
+			err = client.absoluteMove(ctx, ptzPosition{
+				Pan: favorite.Pan, Tilt: favorite.Tilt, Zoom: favorite.Zoom,
+			})
+		}
+		fyne.Do(tile.refreshFavoriteSelect)
+		if err != nil {
+			tile.setStatus(T("PTZFavoriteError", map[string]string{"Error": err.Error()}))
+			return
+		}
+		tile.setStatus(T("PTZFavoriteGoto", map[string]string{"Name": favorite.Name}))
+	}()
 }
 
 func (tile *cameraTile) start(parent context.Context) {
