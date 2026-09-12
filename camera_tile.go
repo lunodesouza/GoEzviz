@@ -27,6 +27,8 @@ type tilePreferences struct {
 	OnVolume       func(int)
 	OnProfile      func(deviceID, sourceToken, profileToken string)
 	OnPTZFavorites func(deviceID string, favorites []ptzFavorite)
+	OnPTZSpeed     func(string)
+	PTZSpeed       string
 }
 
 type doubleTapWidget struct {
@@ -73,6 +75,7 @@ type cameraTile struct {
 	talkButton     *widget.Button
 	micIndicator   *canvas.Circle
 	favoriteSelect *widget.Select
+	speedSelect    *widget.Select
 	volume         int
 	audioVerified  string
 
@@ -258,6 +261,9 @@ func (tile *cameraTile) updatePreferences(preferences tilePreferences) {
 	tile.prefs.OnVolume = preferences.OnVolume
 	tile.prefs.OnProfile = preferences.OnProfile
 	tile.prefs.OnPTZFavorites = preferences.OnPTZFavorites
+	tile.prefs.OnPTZSpeed = preferences.OnPTZSpeed
+	tile.prefs.PTZSpeed = normalizePTZSpeed(preferences.PTZSpeed)
+	tile.refreshPTZSpeedSelect()
 	if microphoneChanged && tile.talk.isActive() {
 		tile.talk.stop()
 		if tile.talkButton != nil {
@@ -268,10 +274,10 @@ func (tile *cameraTile) updatePreferences(preferences tilePreferences) {
 }
 
 func (tile *cameraTile) buildPTZControls() fyne.CanvasObject {
-	up := widget.NewButtonWithIcon("", theme.MoveUpIcon(), func() { tile.move(0, 0.55) })
-	down := widget.NewButtonWithIcon("", theme.MoveDownIcon(), func() { tile.move(0, -0.55) })
-	left := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() { tile.move(-0.55, 0) })
-	right := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() { tile.move(0.55, 0) })
+	up := widget.NewButtonWithIcon("", theme.MoveUpIcon(), func() { tile.move(0, 1) })
+	down := widget.NewButtonWithIcon("", theme.MoveDownIcon(), func() { tile.move(0, -1) })
+	left := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() { tile.move(-1, 0) })
+	right := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() { tile.move(1, 0) })
 	zoomIn := widget.NewButtonWithIcon("", theme.ZoomInIcon(), func() { tile.nudgeViewZoom(1) })
 	zoomOut := widget.NewButtonWithIcon("", theme.ZoomOutIcon(), func() { tile.nudgeViewZoom(-1) })
 	stop := widget.NewButtonWithIcon("", theme.MediaStopIcon(), tile.stopPTZ)
@@ -279,6 +285,8 @@ func (tile *cameraTile) buildPTZControls() fyne.CanvasObject {
 	star.Importance = widget.LowImportance
 	tile.favoriteSelect = widget.NewSelect(nil, tile.onPTZFavoriteSelected)
 	tile.refreshFavoriteSelect()
+	tile.speedSelect = widget.NewSelect(nil, tile.onPTZSpeedSelected)
+	tile.refreshPTZSpeedSelect()
 	controls := container.NewGridWithColumns(3,
 		layout.NewSpacer(), up, zoomIn,
 		left, stop, right,
@@ -286,6 +294,7 @@ func (tile *cameraTile) buildPTZControls() fyne.CanvasObject {
 	)
 	favorites := container.NewVBox(
 		star,
+		container.NewGridWrap(fyne.NewSize(140, tile.speedSelect.MinSize().Height), tile.speedSelect),
 		container.NewGridWrap(fyne.NewSize(140, tile.favoriteSelect.MinSize().Height), tile.favoriteSelect),
 	)
 	return container.NewPadded(container.NewBorder(
@@ -316,6 +325,29 @@ func (tile *cameraTile) refreshFavoriteSelect() {
 	tile.favoriteSelect.ClearSelected()
 	tile.favoriteSelect.SetSelected(options[0])
 	tile.favoriteSelect.Refresh()
+}
+
+func (tile *cameraTile) refreshPTZSpeedSelect() {
+	if tile.speedSelect == nil {
+		return
+	}
+	tile.speedSelect.OnChanged = nil
+	tile.speedSelect.Options = []string{T("PTZSpeedSlow"), T("PTZSpeedMedium"), T("PTZSpeedFast")}
+	tile.speedSelect.SetSelected(ptzSpeedLabel(tile.prefs.PTZSpeed))
+	tile.speedSelect.OnChanged = tile.onPTZSpeedSelected
+	tile.speedSelect.Refresh()
+}
+
+func (tile *cameraTile) onPTZSpeedSelected(option string) {
+	speed := ptzSpeedFromLabel(option)
+	if speed == normalizePTZSpeed(tile.prefs.PTZSpeed) {
+		return
+	}
+	tile.prefs.PTZSpeed = speed
+	if tile.prefs.OnPTZSpeed != nil {
+		tile.prefs.OnPTZSpeed(speed)
+	}
+	tile.setStatus(T("PTZSpeedChanged", map[string]string{"Speed": ptzSpeedLabel(speed)}))
 }
 
 func (tile *cameraTile) persistPTZFavorites() {
@@ -674,6 +706,7 @@ func (tile *cameraTile) toggleTalk() {
 func (tile *cameraTile) move(x, y float64) {
 	tile.mu.Lock()
 	client := tile.client
+	speed := ptzSpeedVelocity(tile.prefs.PTZSpeed)
 	tile.mu.Unlock()
 	if client == nil || client.profileToken == "" {
 		tile.setStatus(T("PTZNotReady"))
@@ -684,7 +717,7 @@ func (tile *cameraTile) move(x, y float64) {
 		defer tile.ptzMu.Unlock()
 		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 		defer cancel()
-		if err := client.move(ctx, x, y); err != nil {
+		if err := client.move(ctx, x*speed, y*speed); err != nil {
 			tile.setStatus(T("PTZError", map[string]string{"Error": err.Error()}))
 			return
 		}

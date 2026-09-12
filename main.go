@@ -112,6 +112,10 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 		}
 		saveSettings()
 	}
+	grid.onPTZSpeed = func(speed string) {
+		settings.PTZSpeed = speed
+		saveSettings()
+	}
 	grid.onPTZFavorites = func(deviceID string, favorites []ptzFavorite) {
 		for deviceIndex := range settings.Devices {
 			if settings.Devices[deviceIndex].ID != deviceID {

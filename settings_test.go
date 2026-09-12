@@ -18,6 +18,7 @@ func TestSettingsV2MultipleDevicesRoundTrip(t *testing.T) {
 		Microphone:       "Microfone USB",
 		AutoConnect:      true,
 		KeepDisplayOn:    true,
+		PTZSpeed:         "fast",
 		DisplayMode:      "Uma em cima da outra",
 		SelectedDeviceID: "front-door",
 		Devices: []deviceSettings{
@@ -78,7 +79,8 @@ func TestSettingsV2MultipleDevicesRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	if loaded.FPS != 18 || loaded.ResolutionMode != "original" || loaded.Volume != 63 ||
-		loaded.Microphone != "Microfone USB" || !loaded.AutoConnect || !loaded.KeepDisplayOn {
+		loaded.Microphone != "Microfone USB" || !loaded.AutoConnect || !loaded.KeepDisplayOn ||
+		loaded.PTZSpeed != "fast" {
 		t.Fatalf("global preferences were not preserved: %+v", loaded)
 	}
 	if loaded.Devices[0].Password != "entrada-secret" || loaded.Devices[1].Password != "garage-secret" {

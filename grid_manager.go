@@ -19,6 +19,7 @@ type gridManager struct {
 	onVolume       func(int)
 	onProfile      func(deviceID, sourceToken, profileToken string)
 	onPTZFavorites func(deviceID string, favorites []ptzFavorite)
+	onPTZSpeed     func(string)
 }
 
 func newGridManager(parent context.Context, window fyne.Window) *gridManager {
@@ -35,9 +36,11 @@ func (manager *gridManager) rebuild(settings appSettings) {
 		ResolutionMode: settings.ResolutionMode,
 		Volume:         settings.Volume,
 		Microphone:     settings.Microphone,
+		PTZSpeed:       settings.PTZSpeed,
 		OnVolume:       manager.onVolume,
 		OnProfile:      manager.onProfile,
 		OnPTZFavorites: manager.onPTZFavorites,
+		OnPTZSpeed:     manager.onPTZSpeed,
 	}
 	existing := make(map[string]*cameraTile, len(manager.tiles))
 	for _, tile := range manager.tiles {
@@ -75,6 +78,7 @@ func (manager *gridManager) rebuild(settings appSettings) {
 				tile.device.PTZFavorites = append([]ptzFavorite(nil), device.PTZFavorites...)
 				tile.updatePreferences(preferences)
 				tile.refreshFavoriteSelect()
+				tile.refreshPTZSpeedSelect()
 				if tile.profile.Token != selected.Token {
 					tile.selectProfile(*selected)
 				}

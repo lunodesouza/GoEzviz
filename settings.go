@@ -23,6 +23,7 @@ type appSettings struct {
 	Microphone       string           `json:"microphone,omitempty"`
 	AutoConnect      bool             `json:"auto_connect"`
 	KeepDisplayOn    bool             `json:"keep_display_on,omitempty"`
+	PTZSpeed         string           `json:"ptz_speed,omitempty"`
 	DisplayMode      string           `json:"display_mode"`
 	SelectedDeviceID string           `json:"selected_device_id,omitempty"`
 	Devices          []deviceSettings `json:"devices"`
@@ -248,6 +249,7 @@ func (settings *appSettings) normalize() {
 		settings.DisplayMode = "Lado a lado"
 	}
 	settings.ResolutionMode = normalizeResolutionMode(settings.ResolutionMode)
+	settings.PTZSpeed = normalizePTZSpeed(settings.PTZSpeed)
 	if len(settings.Devices) == 0 && (settings.Host != "" || settings.Username != "" || settings.Password != "" || settings.EncryptedPassword != "") {
 		settings.Devices = []deviceSettings{legacyDevice(
 			settings.Host,

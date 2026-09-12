@@ -91,6 +91,10 @@
   "PTZFavoriteRemoved": "Favorito removido: {{.Name}}",
   "PTZRemoveFavorite": "Remover…",
   "PTZFavoriteError": "Erro no favorito PTZ: {{.Error}}",
+  "PTZSpeedSlow": "Lenta",
+  "PTZSpeedMedium": "Média",
+  "PTZSpeedFast": "Rápida",
+  "PTZSpeedChanged": "Velocidade PTZ: {{.Speed}}",
   "ViewZoom": "Zoom {{.Zoom}}x",
   "Save": "Salvar"
 }
