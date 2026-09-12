@@ -123,7 +123,7 @@ func newCameraTile(
 		container.NewCenter(tile.loading),
 		widget.NewLabel(T("LoadingImage")),
 	))
-	videoObjects := []fyne.CanvasObject{tile.stream.view, tile.loadingOverlay}
+	videoObjects := []fyne.CanvasObject{tile.stream.zoomView, tile.loadingOverlay}
 	if profile.PTZ {
 		videoObjects = append(videoObjects, tile.buildPTZControls())
 	}
@@ -272,15 +272,17 @@ func (tile *cameraTile) buildPTZControls() fyne.CanvasObject {
 	down := widget.NewButtonWithIcon("", theme.MoveDownIcon(), func() { tile.move(0, -0.55) })
 	left := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() { tile.move(-0.55, 0) })
 	right := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() { tile.move(0.55, 0) })
+	zoomIn := widget.NewButtonWithIcon("", theme.ZoomInIcon(), func() { tile.nudgeViewZoom(1) })
+	zoomOut := widget.NewButtonWithIcon("", theme.ZoomOutIcon(), func() { tile.nudgeViewZoom(-1) })
 	stop := widget.NewButtonWithIcon("", theme.MediaStopIcon(), tile.stopPTZ)
 	star := widget.NewButton("★", tile.promptSavePTZFavorite)
 	star.Importance = widget.LowImportance
 	tile.favoriteSelect = widget.NewSelect(nil, tile.onPTZFavoriteSelected)
 	tile.refreshFavoriteSelect()
 	controls := container.NewGridWithColumns(3,
-		layout.NewSpacer(), up, layout.NewSpacer(),
+		layout.NewSpacer(), up, zoomIn,
 		left, stop, right,
-		layout.NewSpacer(), down, layout.NewSpacer(),
+		layout.NewSpacer(), down, zoomOut,
 	)
 	favorites := container.NewVBox(
 		star,
@@ -500,8 +502,7 @@ func (tile *cameraTile) startVideoAttempt(ctx context.Context, generation uint64
 		ctx,
 		streamURL,
 		tile.prefs.FPS,
-		streamFrameSize(quality),
-		normalizeResolutionMode(tile.prefs.ResolutionMode) == "original",
+		decodeFrameSize(tile.prefs.ResolutionMode, quality),
 		func() {
 			if !tile.isCurrent(generation) {
 				return
@@ -692,6 +693,14 @@ func (tile *cameraTile) move(x, y float64) {
 			tile.setStatus(T("PTZStopError", map[string]string{"Error": err.Error()}))
 		}
 	}()
+}
+
+func (tile *cameraTile) nudgeViewZoom(delta int) {
+	if tile.stream == nil || tile.stream.zoomView == nil {
+		return
+	}
+	factor := tile.stream.zoomView.step(delta)
+	tile.setStatus(T("ViewZoom", map[string]string{"Zoom": formatViewZoom(factor)}))
 }
 
 func (tile *cameraTile) stopPTZ() {

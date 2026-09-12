@@ -7,6 +7,7 @@
   "Microphone": "Microfone:",
   "Language": "Idioma:",
   "ReconnectOnOpen": "Reconectar ao abrir",
+  "KeepDisplayOn": "Manter tela ligada",
   "Optimized": "Otimizada",
   "Original": "Original",
   "Portuguese": "Português",
@@ -90,5 +91,6 @@
   "PTZFavoriteRemoved": "Favorito removido: {{.Name}}",
   "PTZRemoveFavorite": "Remover…",
   "PTZFavoriteError": "Erro no favorito PTZ: {{.Error}}",
+  "ViewZoom": "Zoom {{.Zoom}}x",
   "Save": "Salvar"
 }

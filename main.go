@@ -131,6 +131,7 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 		microphoneLabel *widget.Label
 		languageLabel   *widget.Label
 		autoConnect     *widget.Check
+		keepDisplayOn   *widget.Check
 		resolution      *widget.Select
 		language        *widget.Select
 		rebuild         func()
@@ -146,6 +147,8 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 		languageLabel.SetText(T("Language"))
 		autoConnect.Text = T("ReconnectOnOpen")
 		autoConnect.Refresh()
+		keepDisplayOn.Text = T("KeepDisplayOn")
+		keepDisplayOn.Refresh()
 		selectedMode := settings.ResolutionMode
 		resolution.OnChanged = nil
 		resolution.Options = []string{T("Optimized"), T("Original")}
@@ -231,11 +234,21 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 		status.SetText(T("MicrophonesError", map[string]string{"Error": microphoneErr.Error()}))
 	}
 
+	stayAwake := &displayStayAwake{}
+
 	autoConnect = widget.NewCheck(T("ReconnectOnOpen"), func(enabled bool) {
 		settings.AutoConnect = enabled
 		saveSettings()
 	})
 	autoConnect.SetChecked(settings.AutoConnect)
+
+	keepDisplayOn = widget.NewCheck(T("KeepDisplayOn"), func(enabled bool) {
+		settings.KeepDisplayOn = enabled
+		stayAwake.Set(enabled)
+		saveSettings()
+	})
+	keepDisplayOn.SetChecked(settings.KeepDisplayOn)
+	stayAwake.Set(settings.KeepDisplayOn)
 
 	language = widget.NewSelect([]string{T("Portuguese"), T("English")}, nil)
 	language.SetSelected(languageDisplayName(settings.Language))
@@ -258,6 +271,7 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 		languageLabel,
 		container.NewGridWrap(fyne.NewSize(120, language.MinSize().Height), language),
 		autoConnect,
+		keepDisplayOn,
 	)
 	window.SetContent(container.NewBorder(
 		container.NewVBox(top, widget.NewSeparator()),
@@ -267,6 +281,7 @@ func buildMainUI(viewer fyne.App, window fyne.Window, settings *appSettings, loa
 	))
 	window.SetCloseIntercept(func() {
 		running = false
+		stayAwake.Set(false)
 		grid.stop()
 		cancel()
 		saveSettings()

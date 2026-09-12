@@ -26,6 +26,10 @@ const (
 	fluidFrameHeight = 360
 	hdFrameWidth     = 1280
 	hdFrameHeight    = 720
+	// Original mode used to pipe native 2K as uncompressed PPM; FFmpeg then
+	// occasionally failed to allocate ~9MB packets. Cap at 1080p raw RGBA.
+	originalFrameWidth  = 1920
+	originalFrameHeight = 1080
 )
 
 func clampFPS(value float64) int {
@@ -48,6 +52,13 @@ func streamFrameSize(quality string) image.Rectangle {
 	return image.Rect(0, 0, fluidFrameWidth, fluidFrameHeight)
 }
 
+func decodeFrameSize(resolutionMode, quality string) image.Rectangle {
+	if normalizeResolutionMode(resolutionMode) == "original" {
+		return image.Rect(0, 0, originalFrameWidth, originalFrameHeight)
+	}
+	return streamFrameSize(quality)
+}
+
 func fpsFilter(fps int) string {
 	return fmt.Sprintf("fps=%d", clampFPS(float64(fps)))
 }
@@ -61,8 +72,9 @@ func videoFilter(fps int, size image.Rectangle) string {
 }
 
 type videoStream struct {
-	view   *canvas.Image
-	cancel context.CancelFunc
+	view     *canvas.Image
+	zoomView *videoZoom
+	cancel   context.CancelFunc
 
 	mu         sync.Mutex
 	shown      *image.RGBA // buffer the view is pointing at
@@ -79,7 +91,8 @@ func newVideoStream() *videoStream {
 	// Anything else makes Fyne resample every frame on the CPU into a fresh buffer.
 	view.ScaleMode = canvas.ImageScaleFastest
 	view.SetMinSize(fyne.NewSize(480, 270))
-	return &videoStream{view: view, shown: placeholder}
+	zoomView := newVideoZoom(view)
+	return &videoStream{view: view, zoomView: zoomView, shown: placeholder}
 }
 
 // buffer hands the reader somewhere to write, recycling a retired frame when possible.
@@ -240,15 +253,15 @@ func readPPMPixels(reader io.Reader, frame *image.RGBA) error {
 	return nil
 }
 
-func (s *videoStream) start(parent context.Context, config cameraConfig, channel string, fps int, size image.Rectangle, original bool, report func(error)) {
-	s.startURL(parent, config.rtspURL(channel), fps, size, original, report)
+func (s *videoStream) start(parent context.Context, config cameraConfig, channel string, fps int, size image.Rectangle, report func(error)) {
+	s.startURL(parent, config.rtspURL(channel), fps, size, report)
 }
 
-func (s *videoStream) startURL(parent context.Context, streamURL string, fps int, size image.Rectangle, original bool, report func(error)) {
-	s.startURLWithReady(parent, streamURL, fps, size, original, nil, report)
+func (s *videoStream) startURL(parent context.Context, streamURL string, fps int, size image.Rectangle, report func(error)) {
+	s.startURLWithReady(parent, streamURL, fps, size, nil, report)
 }
 
-func (s *videoStream) startURLWithReady(parent context.Context, streamURL string, fps int, size image.Rectangle, original bool, ready func(), report func(error)) {
+func (s *videoStream) startURLWithReady(parent context.Context, streamURL string, fps int, size image.Rectangle, ready func(), report func(error)) {
 	s.stop()
 	ctx, cancel := context.WithCancel(parent)
 	s.mu.Lock()
@@ -262,6 +275,8 @@ func (s *videoStream) startURLWithReady(parent context.Context, streamURL string
 			"-hide_banner", "-loglevel", "error",
 			"-rtsp_transport", "tcp", "-threads", "1",
 			"-i", streamURL, "-map", "0:v:0", "-an",
+			"-vf", videoFilter(fps, size), "-threads", "1",
+			"-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1",
 		}
 		readySent := false
 		publish := func(frame *image.RGBA) {
@@ -272,15 +287,6 @@ func (s *videoStream) startURLWithReady(parent context.Context, streamURL string
 				}
 			}
 			s.publishGeneration(frame, generation)
-		}
-		if original {
-			// PPM carries dimensions in every frame, so the source can stay at its
-			// native resolution without requiring a separate ffprobe executable.
-			args = append(args, "-vf", fpsFilter(fps), "-threads", "1",
-				"-f", "image2pipe", "-vcodec", "ppm", "pipe:1")
-		} else {
-			args = append(args, "-vf", videoFilter(fps, size), "-threads", "1",
-				"-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1")
 		}
 		cmd := exec.CommandContext(ctx, ffmpegBinary(), args...)
 		hideCommandWindow(cmd)
@@ -297,28 +303,12 @@ func (s *videoStream) startURLWithReady(parent context.Context, streamURL string
 		}
 
 		var readErr error
-		if original {
-			reader := bufio.NewReaderSize(stdout, 1<<20)
-			for {
-				frameSize, err := readPPMHeader(reader)
-				if err != nil {
-					readErr = err
-					break
-				}
-				frame := s.buffer(frameSize)
-				if readErr = readPPMPixels(reader, frame); readErr != nil {
-					break
-				}
-				publish(frame)
+		for {
+			frame := s.buffer(size)
+			if _, readErr = io.ReadFull(stdout, frame.Pix); readErr != nil {
+				break
 			}
-		} else {
-			for {
-				frame := s.buffer(size)
-				if _, readErr = io.ReadFull(stdout, frame.Pix); readErr != nil {
-					break
-				}
-				publish(frame)
-			}
+			publish(frame)
 		}
 		_ = cmd.Wait() // Wait finishes the stderr copy, so the buffer is only safe to read afterwards.
 

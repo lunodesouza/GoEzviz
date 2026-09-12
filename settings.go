@@ -22,6 +22,7 @@ type appSettings struct {
 	Volume           int              `json:"volume"`
 	Microphone       string           `json:"microphone,omitempty"`
 	AutoConnect      bool             `json:"auto_connect"`
+	KeepDisplayOn    bool             `json:"keep_display_on,omitempty"`
 	DisplayMode      string           `json:"display_mode"`
 	SelectedDeviceID string           `json:"selected_device_id,omitempty"`
 	Devices          []deviceSettings `json:"devices"`

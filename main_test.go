@@ -74,6 +74,16 @@ func TestStreamFrameSize(t *testing.T) {
 	}
 }
 
+func TestDecodeFrameSizeCapsOriginal(t *testing.T) {
+	got := decodeFrameSize("original", "hd")
+	if got != image.Rect(0, 0, originalFrameWidth, originalFrameHeight) {
+		t.Fatalf("original frame size = %v", got)
+	}
+	if got := decodeFrameSize("optimized", "fluid"); got != streamFrameSize("fluid") {
+		t.Fatalf("optimized fluid size = %v", got)
+	}
+}
+
 func TestVideoStreamDropsFramesInsteadOfQueueing(t *testing.T) {
 	size := image.Rect(0, 0, 4, 4)
 	stream := &videoStream{}
