@@ -79,13 +79,14 @@ type cameraTile struct {
 	volume         int
 	audioVerified  string
 
-	mu         sync.Mutex
-	ctx        context.Context
-	cancel     context.CancelFunc
-	generation uint64
-	backoff    time.Duration
-	client     *onvifClient
-	ptzMu      sync.Mutex
+	mu          sync.Mutex
+	ctx         context.Context
+	cancel      context.CancelFunc
+	generation  uint64
+	backoff     time.Duration
+	client      *onvifClient
+	ptzMu       sync.Mutex
+	audioWanted bool
 }
 
 func newCameraTile(
@@ -110,7 +111,7 @@ func newCameraTile(
 		audio:    &cameraAudio{},
 		talk:     &cameraTalk{},
 		volume:   prefs.Volume,
-		backoff:  5 * time.Second,
+		backoff:  2 * time.Second,
 	}
 	tile.stream.view.SetMinSize(fyne.NewSize(200, 112))
 	tile.status.Wrapping = fyne.TextWrapWord
@@ -511,7 +512,7 @@ func (tile *cameraTile) start(parent context.Context) {
 	tile.cancel = cancel
 	tile.generation++
 	generation := tile.generation
-	tile.backoff = 5 * time.Second
+	tile.backoff = 2 * time.Second
 	tile.mu.Unlock()
 	tile.setStatus(T("Connecting"))
 	tile.setLoading(true)
@@ -540,10 +541,15 @@ func (tile *cameraTile) startVideoAttempt(ctx context.Context, generation uint64
 				return
 			}
 			tile.mu.Lock()
-			tile.backoff = 5 * time.Second
+			tile.backoff = 2 * time.Second
 			tile.mu.Unlock()
 			tile.setLoading(false)
 			tile.setStatus(tile.profile.Resolution + " " + tile.profile.Codec)
+			fyne.Do(func() {
+				if tile.audioWanted {
+					tile.startAudio()
+				}
+			})
 		},
 		func(err error) {
 			if ctx.Err() != nil || !tile.isCurrent(generation) {
@@ -554,13 +560,25 @@ func (tile *cameraTile) startVideoAttempt(ctx context.Context, generation uint64
 	)
 }
 
+func reconnectErrorText(err error) string {
+	switch {
+	case errors.Is(err, errStreamStalled):
+		return T("StreamStalled")
+	case errors.Is(err, errStreamConnectTimeout):
+		return T("StreamConnectTimeout")
+	default:
+		return err.Error()
+	}
+}
+
 func (tile *cameraTile) scheduleReconnect(ctx context.Context, generation uint64, streamErr error) {
+	tile.audio.stop()
 	tile.mu.Lock()
 	delay := tile.backoff
 	tile.backoff = time.Duration(math.Min(float64(tile.backoff*2), float64(60*time.Second)))
 	tile.mu.Unlock()
 	tile.setLoading(true)
-	tile.setStatus(T("OfflineRetry", map[string]any{"Error": streamErr.Error(), "Delay": delay.String()}))
+	tile.setStatus(T("OfflineRetry", map[string]any{"Error": reconnectErrorText(streamErr), "Delay": delay.String()}))
 	go func() {
 		timer := time.NewTimer(delay)
 		defer timer.Stop()
@@ -594,12 +612,14 @@ func (tile *cameraTile) prepareONVIF(ctx context.Context, generation uint64) {
 }
 
 func (tile *cameraTile) toggleAudio() {
-	if tile.audio.isPlaying() {
+	if tile.audioWanted {
+		tile.audioWanted = false
 		tile.audio.stop()
 		tile.soundButton.SetIcon(theme.VolumeMuteIcon())
 		tile.setStatus(T("AudioOff"))
 		return
 	}
+	tile.audioWanted = true
 	tile.startAudio()
 }
 

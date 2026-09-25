@@ -67,6 +67,8 @@
   "Connecting": "Conectando...",
   "NoRTSP": "Perfil sem URI RTSP",
   "OfflineRetry": "Offline: {{.Error}}. Nova tentativa em {{.Delay}}",
+  "StreamStalled": "a camera parou de enviar video",
+  "StreamConnectTimeout": "a camera nao respondeu",
   "AudioOff": "Audio desligado",
   "CheckingAudio": "Verificando audio da camera...",
   "AudioCheckFailed": "Nao foi possivel verificar o audio da camera",

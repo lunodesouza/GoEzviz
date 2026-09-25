@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -30,7 +32,50 @@ const (
 	// occasionally failed to allocate ~9MB packets. Cap at 1080p raw RGBA.
 	originalFrameWidth  = 1920
 	originalFrameHeight = 1080
+
+	// Camera reboots often leave the RTSP TCP socket half-open. ffmpeg then
+	// sits on the last frame forever unless we time out the I/O and the decode loop.
+	rtspIOTimeoutMicros  = 5_000_000
+	streamStallTimeout   = 8 * time.Second
+	streamConnectTimeout = 15 * time.Second
 )
+
+var (
+	errStreamStalled        = errors.New("stream stalled")
+	errStreamConnectTimeout = errors.New("stream connect timeout")
+)
+
+func streamStallReason(lastFrameNano int64, started, now time.Time, stall, connect time.Duration) error {
+	if lastFrameNano == 0 {
+		if now.Sub(started) >= connect {
+			return errStreamConnectTimeout
+		}
+		return nil
+	}
+	if now.Sub(time.Unix(0, lastFrameNano)) >= stall {
+		return errStreamStalled
+	}
+	return nil
+}
+
+func liveStreamArgs(streamURL string, fps int, size image.Rectangle, extra []string) []string {
+	args := []string{
+		"-hide_banner", "-loglevel", "error",
+		"-rtsp_transport", "tcp",
+		"-timeout", strconv.Itoa(rtspIOTimeoutMicros),
+		"-rw_timeout", strconv.Itoa(rtspIOTimeoutMicros),
+		"-fflags", "nobuffer",
+		"-flags", "low_delay",
+		"-threads", "1",
+	}
+	args = append(args, extra...)
+	args = append(args,
+		"-i", streamURL, "-map", "0:v:0", "-an",
+		"-vf", videoFilter(fps, size), "-threads", "1",
+		"-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1",
+	)
+	return args
+}
 
 func clampFPS(value float64) int {
 	fps := int(value + 0.5)
@@ -173,6 +218,9 @@ func (s *videoStream) present() {
 	}
 	s.view.Image = frame
 	s.view.Refresh()
+	if s.zoomView != nil {
+		s.zoomView.Refresh()
+	}
 }
 
 func readPPMToken(reader *bufio.Reader) (string, error) {
@@ -262,6 +310,14 @@ func (s *videoStream) startURL(parent context.Context, streamURL string, fps int
 }
 
 func (s *videoStream) startURLWithReady(parent context.Context, streamURL string, fps int, size image.Rectangle, ready func(), report func(error)) {
+	s.startURLWithStallWatch(parent, streamURL, fps, size, nil, ready, report, streamStallTimeout, streamConnectTimeout)
+}
+
+func (s *videoStream) startURLWithOptions(parent context.Context, streamURL string, fps int, size image.Rectangle, extra []string, ready func(), report func(error)) {
+	s.startURLWithStallWatch(parent, streamURL, fps, size, extra, ready, report, 0, 0)
+}
+
+func (s *videoStream) startURLWithStallWatch(parent context.Context, streamURL string, fps int, size image.Rectangle, extra []string, ready func(), report func(error), stall, connect time.Duration) {
 	s.stop()
 	ctx, cancel := context.WithCancel(parent)
 	s.mu.Lock()
@@ -271,15 +327,44 @@ func (s *videoStream) startURLWithReady(parent context.Context, streamURL string
 	s.mu.Unlock()
 
 	go func() {
-		args := []string{
-			"-hide_banner", "-loglevel", "error",
-			"-rtsp_transport", "tcp", "-threads", "1",
-			"-i", streamURL, "-map", "0:v:0", "-an",
-			"-vf", videoFilter(fps, size), "-threads", "1",
-			"-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1",
+		var reported sync.Once
+		doReport := func(err error) {
+			if report == nil || err == nil {
+				return
+			}
+			s.mu.Lock()
+			current := s.generation == generation
+			s.mu.Unlock()
+			if !current {
+				return
+			}
+			reported.Do(func() { report(err) })
 		}
+
+		var lastFrame atomic.Int64
+		started := time.Now()
+		if stall > 0 || connect > 0 {
+			go func() {
+				ticker := time.NewTicker(time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						if reason := streamStallReason(lastFrame.Load(), started, time.Now(), stall, connect); reason != nil {
+							cancel()
+							doReport(reason)
+							return
+						}
+					}
+				}
+			}()
+		}
+
 		readySent := false
 		publish := func(frame *image.RGBA) {
+			lastFrame.Store(time.Now().UnixNano())
 			if !readySent {
 				readySent = true
 				if ready != nil {
@@ -288,17 +373,17 @@ func (s *videoStream) startURLWithReady(parent context.Context, streamURL string
 			}
 			s.publishGeneration(frame, generation)
 		}
-		cmd := exec.CommandContext(ctx, ffmpegBinary(), args...)
+		cmd := exec.CommandContext(ctx, ffmpegBinary(), liveStreamArgs(streamURL, fps, size, extra)...)
 		hideCommandWindow(cmd)
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			report(err)
+			doReport(err)
 			return
 		}
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 		if err := cmd.Start(); err != nil {
-			report(err)
+			doReport(err)
 			return
 		}
 
@@ -312,14 +397,17 @@ func (s *videoStream) startURLWithReady(parent context.Context, streamURL string
 		}
 		_ = cmd.Wait() // Wait finishes the stderr copy, so the buffer is only safe to read afterwards.
 
-		if readErr == nil || ctx.Err() != nil {
+		if ctx.Err() != nil {
+			return
+		}
+		if readErr == nil {
 			return
 		}
 		message := strings.TrimSpace(stderr.String())
 		if message == "" {
 			message = readErr.Error()
 		}
-		report(errors.New(message))
+		doReport(errors.New(message))
 	}()
 }
 

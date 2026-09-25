@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"io"
 	"os"
@@ -84,6 +85,51 @@ func TestDecodeFrameSizeCapsOriginal(t *testing.T) {
 	}
 }
 
+func TestStreamStallReason(t *testing.T) {
+	started := time.Unix(100, 0)
+	if err := streamStallReason(0, started, started.Add(5*time.Second), streamStallTimeout, streamConnectTimeout); err != nil {
+		t.Fatalf("early connect should wait: %v", err)
+	}
+	if err := streamStallReason(0, started, started.Add(streamConnectTimeout), streamStallTimeout, streamConnectTimeout); !errors.Is(err, errStreamConnectTimeout) {
+		t.Fatalf("connect timeout = %v", err)
+	}
+	last := started.Add(2 * time.Second).UnixNano()
+	if err := streamStallReason(last, started, started.Add(6*time.Second), streamStallTimeout, streamConnectTimeout); err != nil {
+		t.Fatalf("fresh frames should stay live: %v", err)
+	}
+	if err := streamStallReason(last, started, started.Add(2*time.Second+streamStallTimeout), streamStallTimeout, streamConnectTimeout); !errors.Is(err, errStreamStalled) {
+		t.Fatalf("stalled stream = %v", err)
+	}
+}
+
+func TestLiveStreamArgsIncludeTimeouts(t *testing.T) {
+	args := strings.Join(liveStreamArgs("rtsp://camera/stream", defaultStreamFPS, streamFrameSize("fluid"), nil), " ")
+	for _, expected := range []string{
+		"-rtsp_transport tcp",
+		"-timeout 5000000",
+		"-rw_timeout 5000000",
+		"-fflags nobuffer",
+		"rtsp://camera/stream",
+	} {
+		if !strings.Contains(args, expected) {
+			t.Fatalf("live stream args missing %q: %s", expected, args)
+		}
+	}
+}
+
+func TestReconnectErrorText(t *testing.T) {
+	SetLanguage(langEnglish)
+	if got := reconnectErrorText(errStreamStalled); got != "camera stopped sending video" {
+		t.Fatalf("stalled = %q", got)
+	}
+	if got := reconnectErrorText(errStreamConnectTimeout); got != "camera did not respond" {
+		t.Fatalf("connect = %q", got)
+	}
+	if got := reconnectErrorText(errors.New("boom")); got != "boom" {
+		t.Fatalf("other = %q", got)
+	}
+}
+
 func TestVideoStreamDropsFramesInsteadOfQueueing(t *testing.T) {
 	size := image.Rect(0, 0, 4, 4)
 	stream := &videoStream{}
@@ -149,6 +195,8 @@ func TestAudioPlayerArgs(t *testing.T) {
 	for _, expected := range []string{
 		"-nodisp",
 		"-rtsp_transport tcp",
+		"-timeout 5000000",
+		"-rw_timeout 5000000",
 		"-fflags nobuffer",
 		"-vn",
 		"-volume 65",
