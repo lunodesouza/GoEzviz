@@ -34,8 +34,7 @@ const (
 	originalFrameHeight = 1080
 
 	// Camera reboots often leave the RTSP TCP socket half-open. ffmpeg then
-	// sits on the last frame forever unless we time out the I/O and the decode loop.
-	rtspIOTimeoutMicros  = 5_000_000
+	// sits on the last frame forever unless the decode loop times out.
 	streamStallTimeout   = 8 * time.Second
 	streamConnectTimeout = 15 * time.Second
 )
@@ -62,8 +61,6 @@ func liveStreamArgs(streamURL string, fps int, size image.Rectangle, extra []str
 	args := []string{
 		"-hide_banner", "-loglevel", "error",
 		"-rtsp_transport", "tcp",
-		"-timeout", strconv.Itoa(rtspIOTimeoutMicros),
-		"-rw_timeout", strconv.Itoa(rtspIOTimeoutMicros),
 		"-fflags", "nobuffer",
 		"-flags", "low_delay",
 		"-threads", "1",

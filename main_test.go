@@ -106,8 +106,6 @@ func TestLiveStreamArgsIncludeTimeouts(t *testing.T) {
 	args := strings.Join(liveStreamArgs("rtsp://camera/stream", defaultStreamFPS, streamFrameSize("fluid"), nil), " ")
 	for _, expected := range []string{
 		"-rtsp_transport tcp",
-		"-timeout 5000000",
-		"-rw_timeout 5000000",
 		"-fflags nobuffer",
 		"rtsp://camera/stream",
 	} {
@@ -195,8 +193,6 @@ func TestAudioPlayerArgs(t *testing.T) {
 	for _, expected := range []string{
 		"-nodisp",
 		"-rtsp_transport tcp",
-		"-timeout 5000000",
-		"-rw_timeout 5000000",
 		"-fflags nobuffer",
 		"-vn",
 		"-volume 65",

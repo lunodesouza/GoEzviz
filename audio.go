@@ -37,8 +37,6 @@ func audioPlayerURLArgs(streamURL string, volume int) []string {
 		"-hide_banner", "-loglevel", "error",
 		"-nodisp", "-autoexit",
 		"-rtsp_transport", "tcp",
-		"-timeout", fmt.Sprintf("%d", rtspIOTimeoutMicros),
-		"-rw_timeout", fmt.Sprintf("%d", rtspIOTimeoutMicros),
 		"-fflags", "nobuffer",
 		"-flags", "low_delay",
 		"-vn",
