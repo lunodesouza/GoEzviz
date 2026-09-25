@@ -44,7 +44,7 @@ var (
 	errStreamConnectTimeout = errors.New("stream connect timeout")
 )
 
-func streamStallReason(lastFrameNano int64, started, now time.Time, stall, connect time.Duration) error {
+func streamStallReason(lastFrameNano, lastChangeNano int64, started, now time.Time, stall, connect time.Duration) error {
 	if lastFrameNano == 0 {
 		if now.Sub(started) >= connect {
 			return errStreamConnectTimeout
@@ -54,7 +54,30 @@ func streamStallReason(lastFrameNano int64, started, now time.Time, stall, conne
 	if now.Sub(time.Unix(0, lastFrameNano)) >= stall {
 		return errStreamStalled
 	}
+	// ffmpeg's fps filter keeps emitting the last picture when the camera
+	// freezes, so "frames arriving" is not enough — the picture must change.
+	if lastChangeNano > 0 && now.Sub(time.Unix(0, lastChangeNano)) >= stall {
+		return errStreamStalled
+	}
 	return nil
+}
+
+func frameFingerprint(frame *image.RGBA) uint64 {
+	if frame == nil || len(frame.Pix) == 0 {
+		return 0
+	}
+	pix := frame.Pix
+	step := 64
+	if len(pix) < step {
+		step = 4
+	}
+	var hash uint64 = 1469598103934665603
+	for i := 0; i+3 < len(pix); i += step {
+		hash ^= uint64(pix[i]) | uint64(pix[i+1])<<8 | uint64(pix[i+2])<<16 | uint64(pix[i+3])<<24
+		hash *= 1099511628211
+	}
+	hash ^= uint64(len(pix))
+	return hash
 }
 
 func liveStreamArgs(streamURL string, fps int, size image.Rectangle, extra []string) []string {
@@ -339,6 +362,8 @@ func (s *videoStream) startURLWithStallWatch(parent context.Context, streamURL s
 		}
 
 		var lastFrame atomic.Int64
+		var lastChange atomic.Int64
+		var lastHash atomic.Uint64
 		started := time.Now()
 		if stall > 0 || connect > 0 {
 			go func() {
@@ -349,7 +374,7 @@ func (s *videoStream) startURLWithStallWatch(parent context.Context, streamURL s
 					case <-ctx.Done():
 						return
 					case <-ticker.C:
-						if reason := streamStallReason(lastFrame.Load(), started, time.Now(), stall, connect); reason != nil {
+						if reason := streamStallReason(lastFrame.Load(), lastChange.Load(), started, time.Now(), stall, connect); reason != nil {
 							cancel()
 							doReport(reason)
 							return
@@ -361,7 +386,13 @@ func (s *videoStream) startURLWithStallWatch(parent context.Context, streamURL s
 
 		readySent := false
 		publish := func(frame *image.RGBA) {
-			lastFrame.Store(time.Now().UnixNano())
+			now := time.Now().UnixNano()
+			lastFrame.Store(now)
+			hash := frameFingerprint(frame)
+			if lastChange.Load() == 0 || hash != lastHash.Load() {
+				lastHash.Store(hash)
+				lastChange.Store(now)
+			}
 			if !readySent {
 				readySent = true
 				if ready != nil {
@@ -416,6 +447,7 @@ func (s *videoStream) stop() {
 		s.cancel = nil
 	}
 	s.generation++
+	s.updating = false
 	if s.pending != nil && s.spare == nil {
 		s.spare = s.pending
 	}

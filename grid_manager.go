@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"math"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -47,6 +48,7 @@ func (manager *gridManager) rebuild(settings appSettings) {
 		existing[tile.id] = tile
 	}
 	nextTiles := make([]*cameraTile, 0, len(manager.tiles))
+	newStarts := 0
 	for _, device := range settings.Devices {
 		if device.Password == "" {
 			continue
@@ -87,6 +89,8 @@ func (manager *gridManager) rebuild(settings appSettings) {
 			}
 			tile := newCameraTile(manager.parent, manager.window, device, *selected, profiles, preferences, manager.toggleMaximize)
 			nextTiles = append(nextTiles, tile)
+			tile.startAfter(manager.parent, time.Duration(newStarts)*500*time.Millisecond)
+			newStarts++
 		}
 	}
 	for _, tile := range existing {

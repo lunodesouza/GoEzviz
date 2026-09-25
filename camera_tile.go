@@ -134,7 +134,6 @@ func newCameraTile(
 	video := container.NewStack(videoObjects...)
 	content := container.NewBorder(header, tile.status, nil, nil, video)
 	tile.root = newDoubleTapWidget(content, func() { onDouble(tile.id) })
-	tile.start(parent)
 	return tile
 }
 
@@ -501,6 +500,23 @@ func (tile *cameraTile) gotoPTZFavorite(favorite ptzFavorite) {
 			return
 		}
 		tile.setStatus(T("PTZFavoriteGoto", map[string]string{"Name": favorite.Name}))
+	}()
+}
+
+func (tile *cameraTile) startAfter(parent context.Context, delay time.Duration) {
+	if delay <= 0 {
+		tile.start(parent)
+		return
+	}
+	go func() {
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		select {
+		case <-parent.Done():
+			return
+		case <-timer.C:
+			tile.start(parent)
+		}
 	}()
 }
 

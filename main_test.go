@@ -87,18 +87,50 @@ func TestDecodeFrameSizeCapsOriginal(t *testing.T) {
 
 func TestStreamStallReason(t *testing.T) {
 	started := time.Unix(100, 0)
-	if err := streamStallReason(0, started, started.Add(5*time.Second), streamStallTimeout, streamConnectTimeout); err != nil {
+	if err := streamStallReason(0, 0, started, started.Add(5*time.Second), streamStallTimeout, streamConnectTimeout); err != nil {
 		t.Fatalf("early connect should wait: %v", err)
 	}
-	if err := streamStallReason(0, started, started.Add(streamConnectTimeout), streamStallTimeout, streamConnectTimeout); !errors.Is(err, errStreamConnectTimeout) {
+	if err := streamStallReason(0, 0, started, started.Add(streamConnectTimeout), streamStallTimeout, streamConnectTimeout); !errors.Is(err, errStreamConnectTimeout) {
 		t.Fatalf("connect timeout = %v", err)
 	}
 	last := started.Add(2 * time.Second).UnixNano()
-	if err := streamStallReason(last, started, started.Add(6*time.Second), streamStallTimeout, streamConnectTimeout); err != nil {
+	if err := streamStallReason(last, last, started, started.Add(6*time.Second), streamStallTimeout, streamConnectTimeout); err != nil {
 		t.Fatalf("fresh frames should stay live: %v", err)
 	}
-	if err := streamStallReason(last, started, started.Add(2*time.Second+streamStallTimeout), streamStallTimeout, streamConnectTimeout); !errors.Is(err, errStreamStalled) {
+	if err := streamStallReason(last, last, started, started.Add(2*time.Second+streamStallTimeout), streamStallTimeout, streamConnectTimeout); !errors.Is(err, errStreamStalled) {
 		t.Fatalf("stalled stream = %v", err)
+	}
+	// fps filter keeps emitting the same picture; lastFrame stays recent.
+	now := started.Add(2*time.Second + streamStallTimeout)
+	if err := streamStallReason(now.UnixNano(), last, started, now, streamStallTimeout, streamConnectTimeout); !errors.Is(err, errStreamStalled) {
+		t.Fatalf("identical picture = %v", err)
+	}
+}
+
+func TestFrameFingerprintDetectsChange(t *testing.T) {
+	frame := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	first := frameFingerprint(frame)
+	if first == 0 {
+		t.Fatal("empty frame should still hash length")
+	}
+	if got := frameFingerprint(frame); got != first {
+		t.Fatal("identical frames must share a fingerprint")
+	}
+	frame.Pix[0] = 9
+	if frameFingerprint(frame) == first {
+		t.Fatal("changed pixel should change the fingerprint")
+	}
+}
+
+func TestVideoStreamStopAllowsNewPresent(t *testing.T) {
+	size := image.Rect(0, 0, 4, 4)
+	stream := &videoStream{}
+	if !stream.offer(image.NewRGBA(size)) {
+		t.Fatal("first frame should queue a present")
+	}
+	stream.stop()
+	if !stream.offer(image.NewRGBA(size)) {
+		t.Fatal("stop must reset updating so the next frame can be drawn")
 	}
 }
 
